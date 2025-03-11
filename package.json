@@ -1,0 +1,23 @@
+{
+  "name": "lehaim",
+  "version": "0.1.0",
+  "engines": {
+    "node": "20.x"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p $PORT"
+  },
+  "dependencies": {
+    "bcrypt": "^5.0.0",
+    "cors": "^2.8.5",
+    "imagekit": "^3.0.5",
+    "micro-cors": "^0.1.1",
+    "mongodb": "^6.6.1",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18"
+  }
+}
