@@ -1,5 +1,9 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
+import { MongoClient } from 'mongodb';
+
+const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
+const name = process.env.DB_NAME; 
 
 const { Activation, User, Tree, Token, Office, Transaction, Plan, Affiliation } = db
 const { error, success, midd, ids, map, model, rand } = lib
@@ -39,46 +43,64 @@ function is_upgrade(user, plans, total) {
 
 
 export default async (req, res) => {
-  await midd(req, res)
+  await midd(req, res);
 
-  if(req.method == 'GET') {
+  if (req.method === 'GET') {
+    const { filter, page = 1, limit = 20 } = req.query;
+    console.log('Received request with page:', page, 'and limit:', limit);
+    const q = { all: {}, pending: { status: 'pending' } };
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
 
-    const { filter } = req.query
+    if (!(filter in q)) return res.json(lib.error('invalid filter'));
 
-    const q = { all: {}, pending: { status: 'pending'} }
+    let qq = q[filter];
+    if (req.query.account !== 'admin') qq.office = req.query.account;
 
-    // validate filter
-    if(!(filter in q)) return res.json(error('invalid filter'))
+    const skip = (pageNum - 1) * limitNum;
+    console.log('Calculated skip:', skip, 'using pageNum:', pageNum, 'and limitNum:', limitNum);
 
-    const { account }   = req.query
-    console.log({ account })
+    try {
+      const client = new MongoClient(URL);
+      await client.connect();
+      const db = client.db(name);
 
-    // get activations
-    let qq = q[filter]
-    console.log({ qq })
+      // Modificado para ordenar por fecha en orden descendente
+      const activationsCursor = db.collection('activations')
+        .find(qq)
+        .sort({ date: -1 }) // Ordenar del más reciente al más antiguo
+        .skip(skip)
+        .limit(limitNum);
+        
+      const activations = await activationsCursor.toArray();
 
-    if( account != 'admin') qq.office = account
-    console.log({ qq })
+      const totalActivations = await db.collection('activations').countDocuments(qq);
+      console.log('Type of page:', typeof page, 'Value:', page);
+      console.log('Type of limit:', typeof limit, 'Value:', limit);
+      client.close();
 
-    let activations = await Activation.find(qq)
+      // Obtener usuarios para activaciones
+      let users = await User.find({ id: { $in: lib.ids(activations) } });
+      users = lib.map(users);
 
-    // get users for activations
-    let users = await User.find({ id: { $in: ids(activations) } })
-        users = map(users)
+      // Enriquecer activaciones
+      const enrichedActivations = activations.map(a => {
+        let u = users.get(a.userId);
+        a = lib.model(a, A);
+        u = lib.model(u, U);
+        return { ...a, ...u };
+      });
 
-    // enrich activations
-    activations = activations.map(a => {
-
-      let u = users.get(a.userId)
-
-      a = model(a, A)
-      u = model(u, U)
-
-      return { ...a, ...u }
-    })
-
-    // response
-    return res.json(success({ activations }))
+      return res.json(lib.success({
+        activations: enrichedActivations,
+        total: totalActivations,
+        totalPages: Math.ceil(totalActivations / limit),
+        currentPage: parseInt(page),
+      }));
+    } catch (error) {
+      console.error('Database connection error:', error);
+      return res.status(500).json(lib.error('Database connection error'));
+    }
   }
 
   if(req.method == 'POST') {

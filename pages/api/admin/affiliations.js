@@ -1,5 +1,9 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
+import { MongoClient } from 'mongodb';
+
+const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
+const name = process.env.DB_NAME; 
 
 const { Affiliation, User, Tree, Token, Transaction, Office } = db
 const { error, success, midd, ids, parent_ids, map, model, rand } = lib
@@ -153,47 +157,67 @@ function total_pay(id, parent_id, aff) {
 const handler = async (req, res) => {
 
   if(req.method == 'GET') {
-    // console.log('GET ...')
-    // validate filter
-    const { filter }    = req.query
-
+    // Obtener parámetros de paginación
+    const { filter, page = 1, limit = 20 } = req.query
+    console.log('Received request with page:', page, 'and limit:', limit);
+    
+    // Convertir a números
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+    
     const q = { all: {}, pending: { status: 'pending'} }
 
     if (!(filter in q)) return res.json(error('invalid filter'))
 
-    const { account }   = req.query
+    const { account } = req.query
 
     // get AFFILIATIONS
     let qq = q[filter]
 
-    if( account != 'admin') qq.office = account
+    if(account != 'admin') qq.office = account
 
-    let affiliations = await Affiliation.find(qq)
-    // console.log('affiliations ...')
+    // Calcular skip para paginación
+    const skip = (pageNum - 1) * limitNum;
+    console.log('Calculated skip:', skip, 'using pageNum:', pageNum, 'and limitNum:', limitNum);
 
-    // get USERS for affiliations
-    let users = await User.find({ id: { $in: ids(affiliations) } })
-    // console.log('users ...')
+    try {
+      // Primero obtener todas las afiliaciones que coinciden con el filtro
+      let allAffiliations = await Affiliation.find(qq);
+      
+      // Ordenar manualmente por fecha (del más reciente al más antiguo)
+      allAffiliations.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Aplicar paginación manualmente
+      let affiliations = allAffiliations.slice(skip, skip + limitNum);
+      
+      // Obtener el total de afiliaciones
+      const totalAffiliations = allAffiliations.length;
+      
+      // get USERS for affiliations
+      let users = await User.find({ id: { $in: ids(affiliations) } })
+      users = map(users)
 
-        users = map(users)
+      // enrich affiliations
+      affiliations = affiliations.map(a => {
+        let u = users.get(a.userId)
+        a = model(a, A)
+        u = model(u, U)
+        return { ...a, ...u }
+      })
 
-    // enrich affiliations
-    affiliations = affiliations.map(a => {
+      let parents = await User.find({ id: { $in: parent_ids(affiliations) } })
 
-      let u = users.get(a.userId)
-
-      a = model(a, A)
-      u = model(u, U)
-
-      return { ...a, ...u }
-    })
-
-    let parents = await User.find({ id: { $in: parent_ids(affiliations) } })
-    // console.log('parents ...')
-    // console.log(':) ...')
-
-
-    return res.json(success({ affiliations }))
+      // Devolver los resultados con información de paginación
+      return res.json(success({
+        affiliations,
+        total: totalAffiliations,
+        totalPages: Math.ceil(totalAffiliations / limitNum),
+        currentPage: pageNum,
+      }));
+    } catch (err) {
+      console.error('Database error:', err);
+      return res.status(500).json(error('Database error'));
+    }
   }
 
 
