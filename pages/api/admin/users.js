@@ -17,16 +17,30 @@ const handler = async (req, res) => {
   if(req.method == 'GET') {
     console.log('GET ...')
     
-    const { filter } = req.query
+    const { filter, page = 1, limit = 20 } = req.query
+    console.log('Received request with page:', page, 'and limit:', limit);
+
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
 
     const q = { all: {}, affiliated: { affiliated: true }, activated: { activated: true } }
 
+
+    
     // validate filter
     if(!(filter in q)) return res.json(error('invalid filter'))
 
     // get users
-    let users = await User.find(q[filter])
+    let allUsers = await User.find(q[filter])
     console.log('users ...')
+
+    allUsers.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const totalUsers = allUsers.length;
+    
+    // Aplicar paginación
+    const skip = (pageNum - 1) * limitNum;
+    let users = allUsers.slice(skip, skip + limitNum);
 
     const parentIds = users
                       .filter(i => i.parentId)
@@ -112,8 +126,13 @@ const handler = async (req, res) => {
     })
 
 
-    // response
-    return res.json(success({ users }))
+    // response con información de paginación
+    return res.json(success({
+      users,
+      total: totalUsers,
+      totalPages: Math.ceil(totalUsers / limitNum),
+      currentPage: pageNum,
+    }))
   }
 
 
