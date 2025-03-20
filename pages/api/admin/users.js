@@ -17,22 +17,33 @@ const handler = async (req, res) => {
   if(req.method == 'GET') {
     console.log('GET ...')
     
-    const { filter, page = 1, limit = 20 } = req.query
-    console.log('Received request with page:', page, 'and limit:', limit);
+    const { filter, page = 1, limit = 20, search } = req.query
+    console.log('Received request with page:', page, 'and limit:', limit, 'search:', search);
 
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
 
     const q = { all: {}, affiliated: { affiliated: true }, activated: { activated: true } }
 
-
-    
     // validate filter
     if(!(filter in q)) return res.json(error('invalid filter'))
 
     // get users
     let allUsers = await User.find(q[filter])
-    console.log('users ...')
+
+    // Apply search if search parameter exists
+    if (search) {
+      const searchLower = search.toLowerCase();
+      allUsers = allUsers.filter(user => 
+        user.name?.toLowerCase().includes(searchLower) ||
+        user.lastName?.toLowerCase().includes(searchLower) ||
+        user.dni?.toLowerCase().includes(searchLower) ||
+        user.country?.toLowerCase().includes(searchLower) ||
+        user.phone?.toLowerCase().includes(searchLower)
+      );
+
+      console.log({ allUsers })
+    }
 
     allUsers.sort((a, b) => new Date(b.date) - new Date(a.date));
 
