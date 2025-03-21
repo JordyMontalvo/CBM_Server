@@ -222,14 +222,20 @@ const handler = async (req, res) => {
 
 
   if(req.method == 'POST') {
-
-    const { id, action } = req.body
+    const { id, action, voucher } = req.body;
 
     // get affiliation
-    let affiliation = await Affiliation.findOne({ id })
+    let affiliation = await Affiliation.findOne({ id });
 
     // validate affiliation
-    if(!affiliation) return res.json(error('affiliation not exist'))
+    if (!affiliation) return res.json(error('affiliation not exist'));
+
+    if (action == 'updateVoucher') {
+      console.log('updateVoucher ...')
+      console.log({ id, voucher })
+      await Affiliation.update({ id }, { voucher });
+      return res.json(success());
+    }
 
     if(action == 'approve' || action == 'reject') {
       if(affiliation.status == 'approved') return res.json(error('already approved'))
