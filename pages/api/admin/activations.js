@@ -104,14 +104,20 @@ export default async (req, res) => {
   }
 
   if(req.method == 'POST') {
-
-    const { action, id } = req.body
+    const { id, action, voucher } = req.body;
 
     // get activation
-    const activation = await Activation.findOne({ id })
+    let activation = await Activation.findOne({ id });
 
     // validate activation
-    if(!activation) return res.json(error('activation not exist'))
+    if (!activation) return res.json(error('activation not exist'));
+
+    if (action == 'updateVoucher') {
+      console.log('updateVoucher ...')
+      console.log({ id, voucher })
+      await Activation.update({ id }, { voucher });
+      return res.json(success());
+    }
 
     // validate status
     if(action == 'approve' || action == 'reject') {
