@@ -17,7 +17,7 @@ const handler = async (req, res) => {
   if(req.method == 'GET') {
     console.log('GET ...')
     
-    const { filter, page = 1, limit = 20, search } = req.query
+    const { filter, page = 1, limit = 20, search, showAvailable } = req.query
     console.log('Received request with page:', page, 'and limit:', limit, 'search:', search);
 
     const pageNum = parseInt(page, 10);
@@ -30,6 +30,17 @@ const handler = async (req, res) => {
 
     // get users
     let allUsers = await User.find(q[filter])
+
+    const transaction = await Transaction.find({ virtual: { $in: [null, false] } }); // Asegúrate de que esta línea esté antes de usar 'transactions'
+
+    // Filtrar usuarios con saldo disponible
+    if (showAvailable === 'true') {
+      allUsers = allUsers.filter(user => {
+        const ins = transaction.filter(i => (i.user_id == user.id && i.type == 'in')).reduce((a, b) => a + parseFloat(b.value), 0);
+        const outs = transaction.filter(i => (i.user_id == user.id && i.type == 'out')).reduce((a, b) => a + parseFloat(b.value), 0);
+        return (ins - outs) > 0; // Solo usuarios con saldo disponible
+      });
+    }
 
     // Apply search if search parameter exists
     if (search) {
@@ -44,6 +55,7 @@ const handler = async (req, res) => {
 
       console.log({ allUsers })
     }
+
 
     allUsers.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -66,67 +78,54 @@ const handler = async (req, res) => {
     const virtualTransactions = await Transaction.find({ virtual: true })
     console.log('virtualTransactions ...')
 
-
     // parse user
-    users = users
-            .map(user => {
-
-              // console.log('name: ', user.name)
-
-              const ins  = transactions
+    const totalBalance = allUsers.reduce((total, user) => {
+      const ins = transactions
+                  .filter(i => (i.user_id == user.id && i.type == 'in'))
+                  .reduce((a, b) => a + parseFloat(b.value), 0);
+      const outs = transactions
+                  .filter(i => (i.user_id == user.id && i.type == 'out'))
+                  .reduce((a, b) => a + parseFloat(b.value), 0);
+      return total + (ins - outs); // Sumar el saldo de cada usuario
+    }, 0);
+    
+    // Calcular el saldo no disponible
+    const totalVirtualBalance = allUsers.reduce((total, user) => {
+      const virtualIns = virtualTransactions
                           .filter(i => (i.user_id == user.id && i.type == 'in'))
-                          .reduce((a, b) => a + parseFloat(b.value), 0)
-              const outs = transactions
+                          .reduce((a, b) => a + parseFloat(b.value), 0);
+      const virtualOuts = virtualTransactions
                           .filter(i => (i.user_id == user.id && i.type == 'out'))
-                          .reduce((a, b) => a + parseFloat(b.value), 0)
-              const balance = ins - outs
-
-              user.balance = balance
-              
-              user.holi = "boli!"
-
-
-              
-              const virtualIns = virtualTransactions
-                                  .filter(i => (i.user_id == user.id && i.type == 'in'))
-                                  .reduce((a, b) => a + parseFloat(b.value), 0)
-
-              const virtualOuts = virtualTransactions
-                                  .filter(i => (i.user_id == user.id && i.type == 'out'))
-                                  .reduce((a, b) => a + parseFloat(b.value), 0)
-
-
-              if (user.id == '5f0e0b67af92089b5866bcd0') {
-                // console.log('name: ', user.name)
-                // console.log({ balance })
-                // console.log({ virtualIns })
-              }
-              
-              user.virtualbalance = virtualIns - virtualOuts
-
-
-
-              if(user.parentId) {
-                // console.log(user.name)
-                const i = parents.findIndex(el => el.id == user.parentId)
-                // console.log(i)
-                const parent = parents[i]
-
-                // console.log({ user })
-
-                return {
-                  ...user,
-                  parent: {
-                    name: parent.name,
-                    lastName: parent.lastName,
-                    dni: parent.dni,
-                    phone: parent.phone,
-                  }
-                }
-              } else {
-                return { ...user }
-              }
-            })
+                          .reduce((a, b) => a + parseFloat(b.value), 0);
+      return total + (virtualIns - virtualOuts); // Sumar el saldo virtual de cada usuario
+    }, 0);
+    
+    
+    // Calcular el saldo para los usuarios que se están enviando
+    users = users.map(user => {
+      const ins = transactions
+                  .filter(i => (i.user_id == user.id && i.type == 'in'))
+                  .reduce((a, b) => a + parseFloat(b.value), 0);
+      const outs = transactions
+                  .filter(i => (i.user_id == user.id && i.type == 'out'))
+                  .reduce((a, b) => a + parseFloat(b.value), 0);
+      user.balance = ins - outs;
+    
+      const virtualIns = virtualTransactions
+                          .filter(i => (i.user_id == user.id && i.type == 'in'))
+                          .reduce((a, b) => a + parseFloat(b.value), 0);
+      const virtualOuts = virtualTransactions
+                          .filter(i => (i.user_id == user.id && i.type == 'out'))
+                          .reduce((a, b) => a + parseFloat(b.value), 0);
+      user.virtualbalance = virtualIns - virtualOuts;
+    
+      if (user.parentId) {
+        const i = parents.findIndex(el => el.id == user.parentId);
+        const parent = parents[i];
+      }
+    
+      return user; // Asegúrate de devolver el usuario modificado
+    });
     // console.log({ users })
 
 
@@ -135,17 +134,24 @@ const handler = async (req, res) => {
       const u = model(user, U)
       return { ...u }
     })
+ // Cambia esto para obtener todos los usuarios
+
+    // Calcular el saldo total de todos los usuarios
+
+    
 
 
+    
     // response con información de paginación
     return res.json(success({
       users,
       total: totalUsers,
       totalPages: Math.ceil(totalUsers / limitNum),
       currentPage: pageNum,
-    }))
+      totalBalance ,
+      totalVirtualBalance
+    }));
   }
-
 
   if(req.method == 'POST') {
     console.log("POST ...")
