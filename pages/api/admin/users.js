@@ -34,7 +34,14 @@ const handler = async (req, res) => {
     console.log("GET ...");
 
     const { filter, page = 1, limit = 20, search, showAvailable } = req.query;
-    console.log("Received request with page:",page,"and limit:",limit,"search:",search);
+    console.log(
+      "Received request with page:",
+      page,
+      "and limit:",
+      limit,
+      "search:",
+      search
+    );
 
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
@@ -92,10 +99,20 @@ const handler = async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     let users = allUsers.slice(skip, skip + limitNum);
 
+    // Obtener los padres antes de usarlos
     const parentIds = users.filter((i) => i.parentId).map((i) => i.parentId);
-
     const parents = await User.find({ id: { $in: parentIds } });
-    console.log("parents ...");
+
+    // Asegúrate de que los padres se obtengan antes de usarlos
+    users = users.map((user) => {
+      if (user.parentId) {
+        const i = parents.findIndex((el) => el.id == user.parentId);
+        if (i !== -1) {
+          user.parent = parents[i]; // Asigna el objeto padre al usuario
+        }
+      }
+      return user; // Asegúrate de devolver el usuario modificado
+    });
 
     const transactions = await Transaction.find({
       virtual: { $in: [null, false] },
@@ -144,11 +161,6 @@ const handler = async (req, res) => {
         .filter((i) => i.user_id == user.id && i.type == "out")
         .reduce((a, b) => a + parseFloat(b.value), 0);
       user.virtualbalance = virtualIns - virtualOuts;
-
-      if (user.parentId) {
-        const i = parents.findIndex((el) => el.id == user.parentId);
-        const parent = parents[i];
-      }
 
       return user; // Asegúrate de devolver el usuario modificado
     });
