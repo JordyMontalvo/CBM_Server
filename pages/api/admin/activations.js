@@ -17,6 +17,9 @@ const {
 } = db;
 const { error, success, midd, ids, map, model, rand } = lib;
 
+// Definir `qq` como un objeto de consulta
+const qq = {}; // Puedes ajustar esto según tus necesidades
+
 // valid filters
 // const q = { all: {}, pending: { status: 'pending'} }
 
@@ -76,18 +79,16 @@ export default async (req, res) => {
 
     if (!(filter in q)) return res.json(lib.error("invalid filter"));
 
-    let qq = q[filter];
-    if (req.query.account !== "admin") qq.office = req.query.account;
-
+    // Construir un objeto de búsqueda
+    let userSearchQuery = {};
     if (search) {
-      const searchRegex = new RegExp(search, "i");
-      qq = {
-        ...qq,
+      const searchLower = search.toLowerCase();
+      userSearchQuery = {
         $or: [
-          { name: searchRegex },
-          { lastName: searchRegex },
-          { dni: searchRegex },
-          { phone: searchRegex },
+          { name: { $regex: searchLower, $options: "i" } },
+          { lastName: { $regex: searchLower, $options: "i" } },
+          { dni: { $regex: searchLower, $options: "i" } },
+          { phone: { $regex: searchLower, $options: "i" } },
         ],
       };
     }
@@ -107,9 +108,20 @@ export default async (req, res) => {
       await client.connect();
       const db = client.db(name);
 
+      // Buscar usuarios que coincidan con el query de búsqueda
+      let userIds = [];
+      if (search) {
+        const users = await db
+          .collection("users")
+          .find(userSearchQuery)
+          .toArray();
+        userIds = users.map((user) => user.id); // Obtener los IDs de los usuarios que coinciden
+      }
+
+      // Filtrar activaciones según el userIds encontrados
       const activationsCursor = db
         .collection("activations")
-        .find(qq)
+        .find(userIds.length > 0 ? { userId: { $in: userIds } } : {}) // Si hay userIds, filtrar por ellos
         .sort({ date: -1 })
         .skip(skip)
         .limit(limitNum);
@@ -118,16 +130,18 @@ export default async (req, res) => {
 
       const totalActivations = await db
         .collection("activations")
-        .countDocuments(qq);
+        .countDocuments(userIds.length > 0 ? { userId: { $in: userIds } } : {}); // Contar documentos que coinciden
+
       console.log("Type of page:", typeof page, "Value:", page);
       console.log("Type of limit:", typeof limit, "Value:", limit);
       client.close();
 
-      let users = await User.find({ id: { $in: lib.ids(activations) } });
-      users = lib.map(users);
+      // Obtener usuarios relacionados con las activaciones
+      let relatedUsers = await User.find({ id: { $in: lib.ids(activations) } });
+      relatedUsers = lib.map(relatedUsers);
 
       const enrichedActivations = activations.map((a) => {
-        let u = users.get(a.userId);
+        let u = relatedUsers.get(a.userId);
         a = lib.model(a, A);
         u = lib.model(u, U);
         return { ...a, ...u };
@@ -137,8 +151,8 @@ export default async (req, res) => {
         lib.success({
           activations: enrichedActivations,
           total: totalActivations,
-          totalPages: Math.ceil(totalActivations / limit),
-          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalActivations / limitNum),
+          currentPage: pageNum,
         })
       );
     } catch (error) {
@@ -353,5 +367,7 @@ export default async (req, res) => {
     }
 
     return res.json(success());
+  } else {
+    return res.status(405).json(lib.error("Method not allowed")); // Manejo de métodos no permitidos
   }
 };
