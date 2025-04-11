@@ -357,7 +357,7 @@ export default async (req, res) => {
 
     const query = {};
     if (startDate) {
-      query.date = { ...query.date, $gte: new Date(startDate) };
+      query.date = { $gte: new Date(startDate) };
     }
     if (endDate) {
       query.date = { ...query.date, $lte: new Date(endDate) };
@@ -370,7 +370,7 @@ export default async (req, res) => {
 
       const closeds = await database
         .collection("closeds")
-        .find(query)
+        .find(query, { projection: { field1: 1, field2: 1, date: 1 } })
         .sort({ date: -1 })
         .skip(skip)
         .limit(limitNum)
