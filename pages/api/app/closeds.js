@@ -9,37 +9,20 @@ const { User, Session, Closed } = db;
 const { error, success, midd } = lib;
 
 export default async (req, res) => {
-  await midd(req, res);
-
-  let { session } = req.query;
-
-  // valid session
-  session = await Session.findOne({ value: session });
-  if (!session) return res.json(error("invalid session"));
-
-  // check verified
-  const user = await User.findOne({ id: session.id });
-  // if(!user.verified) return res.json(error('unverified user'))
+  await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { page = 1, limit = 20, startDate, endDate } = req.query;
-    const pageNum = parseInt(page, 20);
+    const { limit = 20, startAfter } = req.query;
     const limitNum = parseInt(limit, 20);
-    const skip = (pageNum - 1) * limitNum;
 
-    const query = [];
-    if (startDate) {
-      query.push({ $match: { date: { $gte: new Date(startDate) } } });
+    const query = {};
+    if (startAfter) {
+      try {
+        query._id = { $gt: new ObjectId(startAfter) };
+      } catch (e) {
+        return res.status(400).json(lib.error("startAfter inválido"));
+      }
     }
-    if (endDate) {
-      query.push({ $match: { date: { $lte: new Date(endDate) } } });
-    }
-
-    query.push(
-      { $sort: { date: -1 } }, // Ordenar por fecha de manera descendente
-      { $skip: skip },
-      { $limit: limitNum }
-    );
 
     try {
       const client = new MongoClient(URL);
@@ -48,25 +31,24 @@ export default async (req, res) => {
 
       const closeds = await database
         .collection("closeds")
-        .aggregate(query, { allowDiskUse: true })
-        .toArray();
-      const totalCloseds = await database
-        .collection("closeds")
-        .countDocuments({}); // Contar documentos que coinciden
-
-      client.close();
-
-      return res.json(
-        success({
-          closeds,
-          total: totalCloseds,
-          totalPages: Math.ceil(totalCloseds / limitNum),
-          currentPage: pageNum,
+        .find(query, {
+          projection: {
+            field1: 1,
+            field2: 1,
+            date: 1,
+            users: 1 // <--- aquí estás incluyendo los usuarios
+          }
         })
-      );
+        .sort({ date: -1 })
+        .limit(limitNum)
+        .toArray();
+
+      await client.close();
+
+      return res.json(lib.success({ closeds }));
     } catch (error) {
-      console.error("Database connection error:", error);
-      return res.status(500).json(error("Database connection error"));
+      console.error("Database connection error:", error.message);
+      return res.status(500).json(lib.error("Database connection error"));
     }
   }
 };
