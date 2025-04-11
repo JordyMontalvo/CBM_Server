@@ -1,539 +1,674 @@
-import db from "../../../components/db"
-import lib from "../../../components/lib"
+import db from "../../../components/db";
+import lib from "../../../components/lib";
+import { MongoClient } from "mongodb";
 
-const { Product, User, Session, Affiliation, Activation } = db
-const { midd, success, rand } = lib
+const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
+const name = process.env.DB_NAME;
 
-const { Tree, Transaction, Closed } = db
+const { Product, User, Session, Affiliation, Activation } = db;
+const { midd, success, rand } = lib;
 
-let tree
+const { Tree, Transaction, Closed } = db;
+
+let tree;
 
 const Pay = {
-  'star':                 15,
-  'master':               30,
-  'silver':               45,
-  'gold':                100,
-  'sapphire':            200,
-  'RUBI':                300,
-  'DIAMANTE':           5000,
-  'DOBLE DIAMANTE':    10000,
-  'TRIPLE DIAMANTE':   15000,
-  'DIAMANTE ESTRELLA': 25000,
-}
+  star: 15,
+  master: 30,
+  silver: 45,
+  gold: 100,
+  sapphire: 200,
+  RUBI: 300,
+  DIAMANTE: 5000,
+  "DOBLE DIAMANTE": 10000,
+  "TRIPLE DIAMANTE": 15000,
+  "DIAMANTE ESTRELLA": 25000,
+};
 
 const pays = [
   {
-    'name' : 'star',
-    'payed':  false,
+    name: "star",
+    payed: false,
   },
   {
-    'name' : 'master',
-    'payed':  false,
+    name: "master",
+    payed: false,
   },
   {
-    'name' : 'silver',
-    'payed':  false,
+    name: "silver",
+    payed: false,
   },
   {
-    'name' : 'gold',
-    'payed':  false,
+    name: "gold",
+    payed: false,
   },
   {
-    'name' : 'sapphire',
-    'payed':  false,
+    name: "sapphire",
+    payed: false,
   },
   {
-    'name' : 'RUBI',
-    'payed':  false,
+    name: "RUBI",
+    payed: false,
   },
   {
-    'name' : 'DIAMANTE',
-    'payed':  false,
+    name: "DIAMANTE",
+    payed: false,
   },
   {
-    'name' : 'DOBLE DIAMANTE',
-    'payed':  false,
+    name: "DOBLE DIAMANTE",
+    payed: false,
   },
   {
-    'name' : 'TRIPLE DIAMANTE',
-    'payed':  false,
+    name: "TRIPLE DIAMANTE",
+    payed: false,
   },
   {
-    'name' : 'DIAMANTE ESTRELLA',
-    'payed':  false,
+    name: "DIAMANTE ESTRELLA",
+    payed: false,
   },
-]
+];
 
 let r = {
-  'active':   [0.03, 0.01, 0.01                                                                          ],
-  'star':     [0.05, 0.06, 0.08, 0.03, 0.005, 0.005                                                      ],
-  'master':   [0.05, 0.06, 0.10, 0.07, 0.03,  0.01,  0.01, 0.005, 0.005                                  ],
-  'silver':   [0.05, 0.06, 0.12, 0.10, 0.03,  0.01,  0.01, 0.01,  0.01, 0.005, 0.005                     ],
-  'gold':     [0.05, 0.07, 0.13, 0.10, 0.03,  0.015, 0.01, 0.01,  0.01, 0.005, 0.005, 0.005, 0.005       ],
-  'sapphire':          [0.06, 0.07, 0.13, 0.11, 0.04,  0.015, 0.01, 0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-  'RUBI':              [0.06, 0.07, 0.14, 0.11, 0.04,  0.015, 0.01, 0.01,  0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-  'DIAMANTE':          [0.07, 0.07, 0.14, 0.12, 0.05,  0.015, 0.01, 0.01,  0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-  'DOBLE DIAMANTE':    [0.07, 0.08, 0.15, 0.13, 0.05,  0.020, 0.02, 0.01,  0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-  'TRIPLE DIAMANTE':   [0.08, 0.10, 0.15, 0.13, 0.05,  0.020, 0.02, 0.01,  0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-  'DIAMANTE ESTRELLA': [0.08, 0.10, 0.16, 0.13, 0.05,  0.020, 0.02, 0.01,  0.01,  0.01, 0.005, 0.005, 0.005, 0.005, 0.005],
-}
+  active: [0.03, 0.01, 0.01],
+  star: [0.05, 0.06, 0.08, 0.03, 0.005, 0.005],
+  master: [0.05, 0.06, 0.1, 0.07, 0.03, 0.01, 0.01, 0.005, 0.005],
+  silver: [0.05, 0.06, 0.12, 0.1, 0.03, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005],
+  gold: [
+    0.05, 0.07, 0.13, 0.1, 0.03, 0.015, 0.01, 0.01, 0.01, 0.005, 0.005, 0.005,
+    0.005,
+  ],
+  sapphire: [
+    0.06, 0.07, 0.13, 0.11, 0.04, 0.015, 0.01, 0.01, 0.01, 0.005, 0.005, 0.005,
+    0.005, 0.005,
+  ],
+  RUBI: [
+    0.06, 0.07, 0.14, 0.11, 0.04, 0.015, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005,
+    0.005, 0.005, 0.005,
+  ],
+  DIAMANTE: [
+    0.07, 0.07, 0.14, 0.12, 0.05, 0.015, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005,
+    0.005, 0.005, 0.005,
+  ],
+  "DOBLE DIAMANTE": [
+    0.07, 0.08, 0.15, 0.13, 0.05, 0.02, 0.02, 0.01, 0.01, 0.01, 0.005, 0.005,
+    0.005, 0.005, 0.005,
+  ],
+  "TRIPLE DIAMANTE": [
+    0.08, 0.1, 0.15, 0.13, 0.05, 0.02, 0.02, 0.01, 0.01, 0.01, 0.005, 0.005,
+    0.005, 0.005, 0.005,
+  ],
+  "DIAMANTE ESTRELLA": [
+    0.08, 0.1, 0.16, 0.13, 0.05, 0.02, 0.02, 0.01, 0.01, 0.01, 0.005, 0.005,
+    0.005, 0.005, 0.005,
+  ],
+};
 
 const pos = {
-  'none':             -1,
-  'active':            0,
-  'star':              1,
-  'master':            2,
-  'silver':            3,
-  'gold':              4,
-  'sapphire':          5,
-  'RUBI':              6,
-  'DIAMANTE':          7,
-  'DOBLE DIAMANTE':    8,
-  'TRIPLE DIAMANTE':   9,
-  'DIAMANTE ESTRELLA': 10,
-}
+  none: -1,
+  active: 0,
+  star: 1,
+  master: 2,
+  silver: 3,
+  gold: 4,
+  sapphire: 5,
+  RUBI: 6,
+  DIAMANTE: 7,
+  "DOBLE DIAMANTE": 8,
+  "TRIPLE DIAMANTE": 9,
+  "DIAMANTE ESTRELLA": 10,
+};
 
 const bonuses = {
   gold: [],
   sapphire: [],
   ruby: [],
   diamond: [],
-}
-
+};
 
 function total_points(id) {
+  const node = tree.find((e) => e.id == id);
 
-  const node = tree.find(e => e.id == id)
+  if (!node) return;
 
-  if(!node) return
+  node.total_points = node.points + node.affiliation_points;
 
-  node.total_points = node.points + node.affiliation_points
+  node.childs.forEach((_id) => {
+    node.total_points += total_points(_id);
+  });
 
-  node.childs.forEach(_id => {
-    node.total_points += total_points(_id)
-  })
-
-  return node.total_points
+  return node.total_points;
 }
-
 
 function calc_range(arr, p) {
+  const n = arr.length;
 
-  const n = arr.length
+  if (
+    n >= 4 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.2619 : 0.25) * 21000
+          ? (c == 0 ? 0.2619 : 0.25) * 21000
+          : b),
+      0
+    ) >= 21000
+  )
+    return "RUBI";
+  if (
+    n >= 4 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.2768 : 0.25) * 9000
+          ? (c == 0 ? 0.2768 : 0.25) * 9000
+          : b),
+      0
+    ) >= 9000
+  )
+    return "sapphire";
+  if (
+    n >= 3 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.3637 : 0.3334) * 3300
+          ? (c == 0 ? 0.3637 : 0.3334) * 3300
+          : b),
+      0
+    ) >= 3300
+  )
+    return "gold";
+  if (
+    n >= 3 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.4167 : 0.3334) * 1800
+          ? (c == 0 ? 0.4167 : 0.3334) * 1800
+          : b),
+      0
+    ) >= 1800
+  )
+    return "silver";
+  if (
+    n >= 2 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.5556 : 0.5) * 900 ? (c == 0 ? 0.5556 : 0.5) * 900 : b),
+      0
+    ) >= 900
+  )
+    return "master";
+  if (
+    n >= 2 &&
+    arr.reduce(
+      (a, b, c) =>
+        a +
+        (b > (c == 0 ? 0.6667 : 0.5) * 300 ? (c == 0 ? 0.6667 : 0.5) * 300 : b),
+      0
+    ) >= 300
+  )
+    return "star";
 
-  if(n >= 4 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.2619 : 0.25)   * 21000 ? (c == 0 ? 0.2619 : 0.25)   * 21000 : b), 0) >= 21000) return 'RUBI'
-  if(n >= 4 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.2768 : 0.25)   * 9000  ? (c == 0 ? 0.2768 : 0.25)   * 9000  : b), 0) >= 9000)  return 'sapphire'
-  if(n >= 3 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.3637 : 0.3334) * 3300  ? (c == 0 ? 0.3637 : 0.3334) * 3300  : b), 0) >= 3300)  return 'gold'
-  if(n >= 3 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.4167 : 0.3334) * 1800  ? (c == 0 ? 0.4167 : 0.3334) * 1800  : b), 0) >= 1800)  return 'silver'
-  if(n >= 2 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.5556 : 0.50)   * 900   ? (c == 0 ? 0.5556 : 0.50)   * 900   : b), 0) >= 900 )  return 'master'
-  if(n >= 2 && arr.reduce((a, b, c) => a + (b > (c == 0 ? 0.6667 : 0.50)   * 300   ? (c == 0 ? 0.6667 : 0.50)   * 300   : b), 0) >= 300 )  return 'star'
-
-  return 'active'
+  return "active";
 }
-
 
 function rank(node) {
+  if (node._activated || node.activated)
+    node.rank = calc_range(node.total, node.points);
+  else node.rank = "none";
 
-  if(node._activated || node.activated) node.rank = calc_range(node.total, node.points)
-  else node.rank = 'none'
-
-  node.childs.forEach(_id => {
-    const _node = tree.find(e => e.id == _id)
-    rank(_node)
-  })
+  node.childs.forEach((_id) => {
+    const _node = tree.find((e) => e.id == _id);
+    rank(_node);
+  });
 }
-
 
 function levels() {
-  for(let node of tree) {
-    if(node.rank == 'DIAMANTE ESTRELLA') node.levels = 15
-    if(node.rank == 'TRIPLE DIAMANTE')   node.levels = 15
-    if(node.rank == 'DOBLE DIAMANTE')    node.levels = 15
-    if(node.rank == 'DIAMANTE')   node.levels = 15
-    if(node.rank == 'RUBI')       node.levels = 15
-    if(node.rank == 'sapphire')   node.levels = 14
-    if(node.rank == 'gold')   node.levels = 13
-    if(node.rank == 'silver') node.levels = 11
-    if(node.rank == 'master') node.levels = 9
-    if(node.rank == 'star')   node.levels = 6
-    if(node.rank == 'active') node.levels = 3
+  for (let node of tree) {
+    if (node.rank == "DIAMANTE ESTRELLA") node.levels = 15;
+    if (node.rank == "TRIPLE DIAMANTE") node.levels = 15;
+    if (node.rank == "DOBLE DIAMANTE") node.levels = 15;
+    if (node.rank == "DIAMANTE") node.levels = 15;
+    if (node.rank == "RUBI") node.levels = 15;
+    if (node.rank == "sapphire") node.levels = 14;
+    if (node.rank == "gold") node.levels = 13;
+    if (node.rank == "silver") node.levels = 11;
+    if (node.rank == "master") node.levels = 9;
+    if (node.rank == "star") node.levels = 6;
+    if (node.rank == "active") node.levels = 3;
   }
 }
 
-
 function find_rank(id, name) {
-  const node = tree.find(e => e.id == id)
+  const node = tree.find((e) => e.id == id);
 
-  const i = pos[node.rank]
-  const j = pos[name]
+  const i = pos[node.rank];
+  const j = pos[name];
 
-  if(i >= j) return true
+  if (i >= j) return true;
 
   for (let _id of node.childs) {
-    if(find_rank(_id, name)) return true
+    if (find_rank(_id, name)) return true;
   }
 
-  return false
+  return false;
 }
 
 function is_rank(node, rank) {
+  let total = 0,
+    M,
+    M1,
+    M2;
 
-  let total = 0, M, M1, M2
+  const n = node.childs.length;
 
-  const n = node.childs.length
-
-  const arr = node.total
+  const arr = node.total;
 
   // if (rank == 'RUBI')              { M  =  21000; M1 =  5500; M2 =  5250 } /
-  if (rank == 'DIAMANTE')          { M  =  60000; M1 = 13000; M2 = 12000 }
-  if (rank == 'DOBLE DIAMANTE')    { M  = 115000; M1 = 23000; M2 = 23000 }
-  if (rank == 'TRIPLE DIAMANTE')   { M  = 225000; M1 = 37500; M2 = 37500 }
-  if (rank == 'DIAMANTE ESTRELLA') { M  = 520000; M1 = 87000; M2 = 86700 }
-
-  for(const [i, a] of arr.entries()) {
-    if(i == 0) total += arr[i] > M1 ? M1 : arr[i]
-    if(i >= 1) total += arr[i] > M2 ? M2 : arr[i]
+  if (rank == "DIAMANTE") {
+    M = 60000;
+    M1 = 13000;
+    M2 = 12000;
+  }
+  if (rank == "DOBLE DIAMANTE") {
+    M = 115000;
+    M1 = 23000;
+    M2 = 23000;
+  }
+  if (rank == "TRIPLE DIAMANTE") {
+    M = 225000;
+    M1 = 37500;
+    M2 = 37500;
+  }
+  if (rank == "DIAMANTE ESTRELLA") {
+    M = 520000;
+    M1 = 87000;
+    M2 = 86700;
   }
 
-  let count = 0
+  for (const [i, a] of arr.entries()) {
+    if (i == 0) total += arr[i] > M1 ? M1 : arr[i];
+    if (i >= 1) total += arr[i] > M2 ? M2 : arr[i];
+  }
+
+  let count = 0;
 
   // if (rank == 'RUBI')              for (const _id of node.childs) if(find_rank(_id, 'gold'))     count += 1
-  if (rank == 'DIAMANTE')          for (const _id of node.childs) if(find_rank(_id, 'sapphire')) count += 1
-  if (rank == 'DOBLE DIAMANTE')    for (const _id of node.childs) if(find_rank(_id, 'RUBI'))     count += 1
-  if (rank == 'TRIPLE DIAMANTE')   for (const _id of node.childs) if(find_rank(_id, 'RUBI'))     count += 1
-  if (rank == 'DIAMANTE ESTRELLA') for (const _id of node.childs) if(find_rank(_id, 'DIAMANTE')) count += 1
+  if (rank == "DIAMANTE")
+    for (const _id of node.childs) if (find_rank(_id, "sapphire")) count += 1;
+  if (rank == "DOBLE DIAMANTE")
+    for (const _id of node.childs) if (find_rank(_id, "RUBI")) count += 1;
+  if (rank == "TRIPLE DIAMANTE")
+    for (const _id of node.childs) if (find_rank(_id, "RUBI")) count += 1;
+  if (rank == "DIAMANTE ESTRELLA")
+    for (const _id of node.childs) if (find_rank(_id, "DIAMANTE")) count += 1;
 
   // if (rank == 'RUBI')              if(total >= M && n >= 4 && count >= 3) return true
-  if (rank == 'DIAMANTE')          if(total >= M && n >= 5 && count >= 4) return true
-  if (rank == 'DOBLE DIAMANTE')    if(total >= M && n >= 5 && count >= 4) return true
-  if (rank == 'TRIPLE DIAMANTE')   if(total >= M && n >= 6 && count >= 5) return true
-  if (rank == 'DIAMANTE ESTRELLA') if(total >= M && n >= 6 && count >= 5) return true
+  if (rank == "DIAMANTE") if (total >= M && n >= 5 && count >= 4) return true;
+  if (rank == "DOBLE DIAMANTE")
+    if (total >= M && n >= 5 && count >= 4) return true;
+  if (rank == "TRIPLE DIAMANTE")
+    if (total >= M && n >= 6 && count >= 5) return true;
+  if (rank == "DIAMANTE ESTRELLA")
+    if (total >= M && n >= 6 && count >= 5) return true;
 
-  return false
+  return false;
 }
 
-
 function pay_residual(id, n, user) {
+  if (n == 13) return;
 
-  if(n == 13) return
+  let node = tree.find((e) => e.id == id);
+  let _id = node.parent;
 
-  let node = tree.find(e => e.id == id)
-  let _id  = node.parent
+  if (node._activated || node.activated) {
+    let rr = node.activated ? 1 : 0.5;
 
-  if(node._activated || node.activated) {
+    if (node.levels > n) {
+      node.residual_bonus += r[node.rank][n] * user.points * rr;
 
-    let rr = node.activated ? 1 : 0.5
-
-    if(node.levels > n) {
-      node.residual_bonus += r[node.rank][n] * user.points * rr
-
-      if(r[node.rank][n] * user.points * rr > 0) {
+      if (r[node.rank][n] * user.points * rr > 0) {
         node.residual_bonus_arr.push({
           n,
-          dni:  user.dni,
+          dni: user.dni,
           name: user.name,
-          val:  user.points,
-          r:    r[node.rank][n],
+          val: user.points,
+          r: r[node.rank][n],
           rr,
-          amount: r[node.rank][n] * user.points * rr
-        })
+          amount: r[node.rank][n] * user.points * rr,
+        });
       }
     }
 
-    if(_id) pay_residual(_id, n+1, user)
-
-  } else
-
-    if(_id) pay_residual(_id, n, user)
+    if (_id) pay_residual(_id, n + 1, user);
+  } else if (_id) pay_residual(_id, n, user);
 }
 
-
 export default async (req, res) => {
-  await midd(req, res)
+  await midd(req, res);
 
-  if(req.method == 'GET') {
+  if (req.method === "GET") {
+    const { page = 1, limit = 20, startDate, endDate } = req.query;
+    const pageNum = parseInt(page, 20);
+    const limitNum = parseInt(limit, 20);
+    const skip = (pageNum - 1) * limitNum;
 
-    let closeds = await Closed.find({})
+    const query = {};
+    if (startDate) {
+      query.date = { ...query.date, $gte: new Date(startDate) };
+    }
+    if (endDate) {
+      query.date = { ...query.date, $lte: new Date(endDate) };
+    }
 
-    return res.json(success({ closeds }))
+    try {
+      const client = new MongoClient(URL);
+      await client.connect();
+      const db = client.db(name);
+
+      // Obtener los documentos de 'closeds' con paginación y filtrado
+      const closedsCursor = db
+        .collection("closeds")
+        .find(query)
+        .sort({ date: -1 }) // Ordenar por fecha de manera descendente
+        .skip(skip)
+        .limit(limitNum);
+
+      const closeds = await closedsCursor.toArray();
+      const totalCloseds = await db.collection("closeds").countDocuments(query); // Contar documentos que coinciden
+
+      client.close();
+
+      return res.json(
+        lib.success({
+          closeds,
+          total: totalCloseds,
+          totalPages: Math.ceil(totalCloseds / limitNum),
+          currentPage: pageNum,
+        })
+      );
+    } catch (error) {
+      console.error("Database connection error:", error);
+      return res.status(500).json(lib.error("Database connection error"));
+    }
   }
 
-  if(req.method == 'POST') { ; console.log('POST ...')
+  if (req.method == "POST") {
+    console.log("POST ...");
 
-    const { action } = req.body
+    const { action } = req.body;
 
-    if (action == 'new') { ; console.log('new ...')
+    if (action == "new") {
+      console.log("new ...");
 
-      const users = await User.find({ tree: true })
-            tree  = await Tree.find({})
+      const users = await User.find({ tree: true });
+      tree = await Tree.find({});
 
-      tree.forEach(node => {
-        const user = users.find(e => e.id == node.id)
+      tree.forEach((node) => {
+        const user = users.find((e) => e.id == node.id);
 
-        node.parentId           = user.parentId
-        node.plan               = user.plan
-        node.dni                = user.dni
-        node.name               = user.name + ' ' + user.lastName
-        node.activated          = user.activated
-        node._activated         = user._activated ? user._activated : false
-        node.points             = Number(user.points)
-        node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
+        node.parentId = user.parentId;
+        node.plan = user.plan;
+        node.dni = user.dni;
+        node.name = user.name + " " + user.lastName;
+        node.activated = user.activated;
+        node._activated = user._activated ? user._activated : false;
+        node.points = Number(user.points);
+        node.affiliation_points = user.affiliation_points
+          ? user.affiliation_points
+          : 0;
         // node.closeds            = user.closeds ? user.closeds : []
-        node.pays               = user.pays ? user.pays : pays
-        node.bonuses            = user.bonuses ? user.bonuses : bonuses
-        node.n_inactives        = user.n_inactives ? user.n_inactives : 0
-        node.residual_bonus     = 0
-        node.residual_bonus_arr = []
-        node._pays              = []
-      })
+        node.pays = user.pays ? user.pays : pays;
+        node.bonuses = user.bonuses ? user.bonuses : bonuses;
+        node.n_inactives = user.n_inactives ? user.n_inactives : 0;
+        node.residual_bonus = 0;
+        node.residual_bonus_arr = [];
+        node._pays = [];
+      });
 
-      total_points('5f0e0b67af92089b5866bcd0')
-      console.log('1')
+      total_points("5f0e0b67af92089b5866bcd0");
+      console.log("1");
 
-      tree.forEach(node => {
+      tree.forEach((node) => {
+        node.total = [];
+        node._total = [];
 
-        node.total = []
-        node._total = []
+        node.childs.forEach((_id) => {
+          const _node = tree.find((e) => e.id == _id);
 
-        node.childs.forEach(_id => {
+          node.total.push(_node.total_points);
+          node._total.push(_node.total_points);
+        });
 
-          const _node = tree.find(e => e.id == _id)
+        node.total.sort((a, b) => b - a);
+      });
 
-          node.total.push(_node.total_points)
-          node._total.push(_node.total_points)
-        })
-
-        node.total.sort((a, b) => b - a)
-      })
-
-      
-      tree.forEach(node => {
-        rank(node)
-      })
-      console.log('2')
+      tree.forEach((node) => {
+        rank(node);
+      });
+      console.log("2");
 
       // for(let node of tree) if(is_rank(node, 'RUBI'))              node.rank = 'RUBI'
-      for(let node of tree) if(is_rank(node, 'DIAMANTE'))          node.rank = 'DIAMANTE'
-      for(let node of tree) if(is_rank(node, 'DOBLE DIAMANTE'))    node.rank = 'DOBLE DIAMANTE'
-      for(let node of tree) if(is_rank(node, 'TRIPLE DIAMANTE'))   node.rank = 'TRIPLE DIAMANTE'
-      for(let node of tree) if(is_rank(node, 'DIAMANTE ESTRELLA')) node.rank = 'DIAMANTE ESTRELLA'
+      for (let node of tree)
+        if (is_rank(node, "DIAMANTE")) node.rank = "DIAMANTE";
+      for (let node of tree)
+        if (is_rank(node, "DOBLE DIAMANTE")) node.rank = "DOBLE DIAMANTE";
+      for (let node of tree)
+        if (is_rank(node, "TRIPLE DIAMANTE")) node.rank = "TRIPLE DIAMANTE";
+      for (let node of tree)
+        if (is_rank(node, "DIAMANTE ESTRELLA")) node.rank = "DIAMANTE ESTRELLA";
 
-      levels()
-      console.log('3')
+      levels();
+      console.log("3");
 
-      for(let node of tree) if(node.parent) pay_residual(node.parent, 0, node)
-      console.log('4')
+      for (let node of tree)
+        if (node.parent) pay_residual(node.parent, 0, node);
+      console.log("4");
 
-      for(let node of tree) {
-
-        let directs = tree.filter(e => e.affiliation_points && e.parenId == node.id && (e.plan == 'business' || e.plan == 'master'))
+      for (let node of tree) {
+        let directs = tree.filter(
+          (e) =>
+            e.affiliation_points &&
+            e.parenId == node.id &&
+            (e.plan == "business" || e.plan == "master")
+        );
 
         directs.sort((a, b) => {
-          if(a.plan == b.plan) return  0
+          if (a.plan == b.plan) return 0;
 
-          if(a.plan == 'master' && b.plan == 'business') return -1
+          if (a.plan == "master" && b.plan == "business") return -1;
 
-          return 1
-        })
+          return 1;
+        });
 
-        if(directs.length >= 5) {
-
-          const value = (directs[4].plan == 'master') ? 250 : 100
+        if (directs.length >= 5) {
+          const value = directs[4].plan == "master" ? 250 : 100;
 
           await Transaction.insert({
-            date:    new Date(),
+            date: new Date(),
             user_id: node.id,
-            type:   'in',
+            type: "in",
             value,
-            name:   'fast bonus',
-          })
-          console.log('4 4')
+            name: "fast bonus",
+          });
+          console.log("4 4");
         }
       }
 
-
       for (let node of tree) {
+        const { rank } = node;
 
-        const { rank } = node
+        if (rank != "none") {
+          const pos = node.pays.findIndex((e) => e.name == rank);
 
-        if(rank != 'none') {
+          if (pos != -1) {
+            for (let i = 0; i <= pos; i++) {
+              const pay = node.pays[i];
 
-          const pos = node.pays.findIndex(e => e.name == rank)
+              if (!pay.payed) {
+                const value = Pay[pay.name];
 
-          if(pos != -1) {
+                pay.value = value;
 
-            for(let i = 0; i <= pos; i++) {
-
-              const pay = node.pays[i]
-
-              if(!pay.payed) {
-
-                const value = Pay[pay.name]
-
-                pay.value = value
-
-                node._pays.push(pay)
+                node._pays.push(pay);
               }
             }
           }
         }
       }
-      console.log('5')
+      console.log("5");
 
-      const affiliations = await Affiliation.find({ closed: false })
-      const activations  = await  Activation.find({ closed: false })
+      const affiliations = await Affiliation.find({ closed: false });
+      const activations = await Activation.find({ closed: false });
 
-      return res.json(success({ tree, affiliations, activations }))
+      return res.json(success({ tree, affiliations, activations }));
     }
 
-    if (action == 'save') { ; console.log('save ...')
+    if (action == "save") {
+      console.log("save ...");
 
-      const { tree, affiliations, activations } = req.body.data
+      const { tree, affiliations, activations } = req.body.data;
 
-      let users = []
+      let users = [];
 
       for (let node of tree) {
-        if (node.rank != 'none') {
+        if (node.rank != "none") {
           users.push({
-            name:           node.name,
-            activated:      node.activated,
-           _activated:      node._activated,
-            points:         node.points,
-            total:          node._total,
-            rank:           node.rank,
+            name: node.name,
+            activated: node.activated,
+            _activated: node._activated,
+            points: node.points,
+            total: node._total,
+            rank: node.rank,
             residual_bonus: node.residual_bonus,
-          })
+          });
         }
       }
-      console.log('1')
+      console.log("1");
 
       await Closed.insert({
-        id:   rand(),
+        id: rand(),
         date: new Date(),
         users,
         tree,
         affiliations,
         activations,
-      })
-      console.log('2')
+      });
+      console.log("2");
 
       for (let node of tree) {
+        const { rank } = node;
 
-        const { rank } = node
-
-        if(rank != 'none') {
-
+        if (rank != "none") {
           await Transaction.insert({
-            date:    new Date(),
+            date: new Date(),
             user_id: node.id,
-            type:   'in',
-            value:   node.residual_bonus,
-            name:   'residual',
-          })
-          console.log('3')
+            type: "in",
+            value: node.residual_bonus,
+            name: "residual",
+          });
+          console.log("3");
 
+          const pos = node.pays.findIndex((e) => e.name == rank);
 
-          const pos = node.pays.findIndex(e => e.name == rank)
+          if (pos != -1) {
+            for (let i = 0; i <= pos; i++) {
+              const pay = node.pays[i];
 
-          if(pos != -1) {
-
-            for(let i = 0; i <= pos; i++) {
-
-              const pay = node.pays[i]
-
-              if(!pay.payed) {
-
-                const value = Pay[pay.name]
+              if (!pay.payed) {
+                const value = Pay[pay.name];
 
                 await Transaction.insert({
-                  date:    new Date(),
+                  date: new Date(),
                   user_id: node.id,
-                  type:   'in',
-                  value:   value,
-                  name:   'closed bonus',
-                })
-                console.log('4')
+                  type: "in",
+                  value: value,
+                  name: "closed bonus",
+                });
+                console.log("4");
 
-                pay.payed = true
+                pay.payed = true;
               }
             }
           }
 
-          if(rank == 'sapphire') node.bonuses['sapphire'].push(true)
-          if(rank == 'ruby')     node.bonuses['ruby'].push(true)
-          if(rank == 'gold')     node.bonuses['gold'].push(true)
-          if(rank == 'diamond')  node.bonuses['diamond'].push(true)
+          if (rank == "sapphire") node.bonuses["sapphire"].push(true);
+          if (rank == "ruby") node.bonuses["ruby"].push(true);
+          if (rank == "gold") node.bonuses["gold"].push(true);
+          if (rank == "diamond") node.bonuses["diamond"].push(true);
         }
 
-        if(!node.activated) node.n_inactives + 1
+        if (!node.activated) node.n_inactives + 1;
       }
-      console.log('5')
+      console.log("5");
 
-      await User.updateMany({}, {
-        activated: false,
-       _activated: false,
-        rank: 'none',
-        points: 0,
-        affiliation_points: 0,
-      })
-      console.log('6')
+      await User.updateMany(
+        {},
+        {
+          activated: false,
+          _activated: false,
+          rank: "none",
+          points: 0,
+          affiliation_points: 0,
+        }
+      );
+      console.log("6");
 
+      await User.incMany(
+        {},
+        {
+          upgrade_pos: 1,
+        }
+      );
 
-
-      await User.incMany({}, {
-        upgrade_pos: 1
-      })
-
-      await User.updateMany({ upgrade_pos: 2 }, {
-        upgrade_pos: 0,
-        upgrade_arr: [0, 0],
-      })
-
-
+      await User.updateMany(
+        { upgrade_pos: 2 },
+        {
+          upgrade_pos: 0,
+          upgrade_arr: [0, 0],
+        }
+      );
 
       for (let node of tree) {
-        if(node.rank != 'none') {
-
+        if (node.rank != "none") {
           await User.updateOne(
             { id: node.id },
             {
-              rank:               node.rank,
-              pays:               node.pays,
-              closeds:            node.closeds,
-              bonuses:            node.bonuses,
-              n_inactives:        node.n_inactives,
-            },
-          )
-          console.log('7')
+              rank: node.rank,
+              pays: node.pays,
+              closeds: node.closeds,
+              bonuses: node.bonuses,
+              n_inactives: node.n_inactives,
+            }
+          );
+          console.log("7");
         }
       }
-      console.log('8')
+      console.log("8");
 
-      await Affiliation.updateMany({}, { closed: true })
-      await Activation.updateMany ({}, { closed: true })
+      await Affiliation.updateMany({}, { closed: true });
+      await Activation.updateMany({}, { closed: true });
 
-      console.log('9')
+      console.log("9");
 
+      const virtualTransactions = await Transaction.find({ virtual: true });
 
-      const virtualTransactions = await Transaction.find({ virtual: true })
-
-      for(let transaction of virtualTransactions) {
-        await Transaction.delete(
-          { id: transaction.id }
-        )
+      for (let transaction of virtualTransactions) {
+        await Transaction.delete({ id: transaction.id });
       }
     }
 
     // response
-    return res.json(success({}))
+    return res.json(success({}));
   }
-}
-
+};
 
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '4mb',
+      sizeLimit: "4mb",
     },
   },
-}
+};
