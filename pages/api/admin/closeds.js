@@ -350,26 +350,39 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit = 20, page = 1 } = req.query;
-    const limitNum = parseInt(limit, 20);
-    const skip = (page - 1) * limitNum;
+    const { limit = 10, startAfter } = req.query;
+    const limitNum = parseInt(limit, 10);
+
+    const query = {};
+    if (startAfter) {
+      try {
+        query._id = { $gt: new ObjectId(startAfter) };
+      } catch (e) {
+        return res.status(400).json(lib.error("startAfter inválido"));
+      }
+    }
 
     try {
       const client = new MongoClient(URL);
       await client.connect();
       const database = client.db(name);
 
-      // Consulta para obtener los cierres
       const closeds = await database
         .collection("closeds")
-        .find({})
-        .skip(skip)
+        .find(query, {
+          projection: {
+            field1: 1,
+            field2: 1,
+            date: 1,
+            users: 1 // <--- aquí estás incluyendo los usuarios
+          }
+        })
+        .sort({ date: -1 })
         .limit(limitNum)
-        .toArray()
+        .toArray();
 
-      client.close();
+      await client.close();
 
-      // Asegúrate de que la respuesta incluya los datos de 'users'
       return res.json(lib.success({ closeds }));
     } catch (error) {
       console.error("Database connection error:", error.message);
