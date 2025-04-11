@@ -350,17 +350,12 @@ export default async (req, res) => {
   await midd(req, res);
 
   if (req.method === "GET") {
-    const { page = 1, limit = 10, startDate, endDate } = req.query;
-    const pageNum = parseInt(page, 10);
+    const { limit = 10, startAfter } = req.query;
     const limitNum = parseInt(limit, 10);
-    const skip = (pageNum - 1) * limitNum;
 
     const query = {};
-    if (startDate) {
-      query.date = { $gte: new Date(startDate) };
-    }
-    if (endDate) {
-      query.date = { ...query.date, $lte: new Date(endDate) };
+    if (startAfter) {
+      query._id = { $gt: startAfter };
     }
 
     try {
@@ -372,23 +367,12 @@ export default async (req, res) => {
         .collection("closeds")
         .find(query, { projection: { field1: 1, field2: 1, date: 1 } })
         .sort({ date: -1 })
-        .skip(skip)
         .limit(limitNum)
         .toArray();
-      const totalCloseds = await database
-        .collection("closeds")
-        .countDocuments(query);
 
       client.close();
 
-      return res.json(
-        lib.success({
-          closeds,
-          total: totalCloseds,
-          totalPages: Math.ceil(totalCloseds / limitNum),
-          currentPage: pageNum,
-        })
-      );
+      return res.json(lib.success({ closeds }));
     } catch (error) {
       console.error("Database connection error:", error);
       return res.status(500).json(lib.error("Database connection error"));
@@ -509,8 +493,6 @@ export default async (req, res) => {
 
               if (!pay.payed) {
                 const value = Pay[pay.name];
-
-                pay.value = value;
 
                 node._pays.push(pay);
               }
