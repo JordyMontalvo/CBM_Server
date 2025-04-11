@@ -350,9 +350,9 @@ export default async (req, res) => {
   await midd(req, res);
 
   if (req.method === "GET") {
-    const { page = 1, limit = 20, startDate, endDate } = req.query;
-    const pageNum = parseInt(page, 0);
-    const limitNum = parseInt(limit, 20);
+    const { page = 1, limit = 10, startDate, endDate } = req.query;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
     const query = [];
