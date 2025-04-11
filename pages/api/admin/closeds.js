@@ -347,34 +347,32 @@ function pay_residual(id, n, user) {
 }
 
 export default async (req, res) => {
-  await midd(req, res);
+  await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit = 10, startAfter } = req.query;
-    const limitNum = parseInt(limit, 10);
-
-    const query = {};
-    if (startAfter) {
-      query._id = { $gt: startAfter };
-    }
+    const { limit = 20, page = 1 } = req.query;
+    const limitNum = parseInt(limit, 20);
+    const skip = (page - 1) * limitNum;
 
     try {
       const client = new MongoClient(URL);
       await client.connect();
       const database = client.db(name);
 
+      // Consulta para obtener los cierres
       const closeds = await database
         .collection("closeds")
-        .find(query, { projection: { field1: 1, field2: 1, date: 1 } })
-        .sort({ date: -1 })
+        .find({})
+        .skip(skip)
         .limit(limitNum)
-        .toArray();
+        .toArray()
 
       client.close();
 
+      // Asegúrate de que la respuesta incluya los datos de 'users'
       return res.json(lib.success({ closeds }));
     } catch (error) {
-      console.error("Database connection error:", error);
+      console.error("Database connection error:", error.message);
       return res.status(500).json(lib.error("Database connection error"));
     }
   }
