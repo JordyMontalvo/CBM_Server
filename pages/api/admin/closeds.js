@@ -355,19 +355,13 @@ export default async (req, res) => {
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    const query = [];
+    const query = {};
     if (startDate) {
-      query.push({ $match: { date: { $gte: new Date(startDate) } } });
+      query.date = { ...query.date, $gte: new Date(startDate) };
     }
     if (endDate) {
-      query.push({ $match: { date: { $lte: new Date(endDate) } } });
+      query.date = { ...query.date, $lte: new Date(endDate) };
     }
-
-    query.push(
-      { $sort: { date: -1 } }, // Ordenar por fecha de manera descendente
-      { $skip: skip },
-      { $limit: limitNum }
-    );
 
     try {
       const client = new MongoClient(URL);
@@ -376,11 +370,14 @@ export default async (req, res) => {
 
       const closeds = await database
         .collection("closeds")
-        .aggregate(query, { allowDiskUse: true })
+        .find(query)
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum)
         .toArray();
       const totalCloseds = await database
         .collection("closeds")
-        .countDocuments({}); // Contar documentos que coinciden
+        .countDocuments(query);
 
       client.close();
 
