@@ -351,33 +351,36 @@ export default async (req, res) => {
 
   if (req.method === "GET") {
     const { page = 1, limit = 20, startDate, endDate } = req.query;
-    const pageNum = parseInt(page, 20);
+    const pageNum = parseInt(page, 0);
     const limitNum = parseInt(limit, 20);
     const skip = (pageNum - 1) * limitNum;
 
-    const query = {};
+    const query = [];
     if (startDate) {
-      query.date = { ...query.date, $gte: new Date(startDate) };
+      query.push({ $match: { date: { $gte: new Date(startDate) } } });
     }
     if (endDate) {
-      query.date = { ...query.date, $lte: new Date(endDate) };
+      query.push({ $match: { date: { $lte: new Date(endDate) } } });
     }
+
+    query.push(
+      { $sort: { date: -1 } }, // Ordenar por fecha de manera descendente
+      { $skip: skip },
+      { $limit: limitNum }
+    );
 
     try {
       const client = new MongoClient(URL);
       await client.connect();
-      const db = client.db(name);
+      const database = client.db(name);
 
-      // Obtener los documentos de 'closeds' con paginación y filtrado
-      const closedsCursor = db
+      const closeds = await database
         .collection("closeds")
-        .find(query)
-        .sort({ date: -1 }) // Ordenar por fecha de manera descendente
-        .skip(skip)
-        .limit(limitNum);
-
-      const closeds = await closedsCursor.toArray();
-      const totalCloseds = await db.collection("closeds").countDocuments(query); // Contar documentos que coinciden
+        .aggregate(query, { allowDiskUse: true })
+        .toArray();
+      const totalCloseds = await database
+        .collection("closeds")
+        .countDocuments({}); // Contar documentos que coinciden
 
       client.close();
 
