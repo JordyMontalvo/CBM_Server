@@ -373,8 +373,10 @@ export default async (req, res) => {
           projection: {
             field1: 1,
             field2: 1,
+            field3: 1,
             date: 1,
-            users: 1 // <--- aquí estás incluyendo los usuarios
+            users: 1,
+            tree: 1 // <--- aquí estás incluyendo los usuarios
           }
         })
         .sort({ date: -1 })
