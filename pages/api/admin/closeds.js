@@ -352,7 +352,7 @@ export default async (req, res) => {
   if (req.method === "GET") {
     const { limit = 20, startAfter, page = 1 } = req.query;
     const limitNum = parseInt(limit, 20);
-    const skip = (parseInt(page, 10) - 1) * limitNum; // Calcular el número de documentos a saltar
+    const skip = (parseInt(page, 10) - 1) * limitNum;
 
     const query = {};
     if (startAfter) {
@@ -368,6 +368,12 @@ export default async (req, res) => {
       await client.connect();
       const database = client.db(name);
 
+      // Primero obtener el conteo total
+      const totalCount = await database
+        .collection("closeds")
+        .countDocuments(query);
+
+      // Luego obtener los documentos paginados
       const closeds = await database
         .collection("closeds")
         .find(query, {
@@ -377,18 +383,26 @@ export default async (req, res) => {
             field3: 1,
             date: 1,
             users: 1,
-            tree: 1, // <--- aquí estás incluyendo los usuarios
+            tree: 1,
           },
         })
-        .sort({ date: -1 })
-        .allowDiskUse(true) // Añade esta línea para permitir el uso de almacenamiento en disco
-        .skip(skip) // Saltar los documentos anteriores
+        .skip(skip)
         .limit(limitNum)
         .toArray();
 
+      // Ordenar los resultados en memoria
+      closeds.sort((a, b) => new Date(b.date) - new Date(a.date));
+
       await client.close();
 
-      return res.json(lib.success({ closeds }));
+      return res.json(
+        lib.success({
+          closeds,
+          totalCount,
+          currentPage: parseInt(page, 10),
+          totalPages: Math.ceil(totalCount / limitNum),
+        })
+      );
     } catch (error) {
       console.error("Database connection error:", error.message);
       return res.status(500).json(lib.error("Database connection error"));
