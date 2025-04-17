@@ -350,8 +350,9 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit = 20, startAfter } = req.query;
+    const { limit = 20, startAfter, page = 1 } = req.query;
     const limitNum = parseInt(limit, 20);
+    const skip = (parseInt(page, 10) - 1) * limitNum; // Calcular el número de documentos a saltar
 
     const query = {};
     if (startAfter) {
@@ -376,10 +377,12 @@ export default async (req, res) => {
             field3: 1,
             date: 1,
             users: 1,
-            tree: 1 // <--- aquí estás incluyendo los usuarios
-          }
+            tree: 1, // <--- aquí estás incluyendo los usuarios
+          },
         })
         .sort({ date: -1 })
+        .allowDiskUse(true) // Añade esta línea para permitir el uso de almacenamiento en disco
+        .skip(skip) // Saltar los documentos anteriores
         .limit(limitNum)
         .toArray();
 
