@@ -350,8 +350,8 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit = 10, startAfter } = req.query;
-    const limitNum = parseInt(limit, 10);
+    const { limit = 20, startAfter } = req.query;
+    const limitNum = parseInt(limit, 20);
 
     const query = {};
     if (startAfter) {
