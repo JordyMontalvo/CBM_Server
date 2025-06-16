@@ -107,6 +107,12 @@ export default async (req, res) => {
         })
       }
     }
+    if (action == 'delete') { ; console.log('delete ...')
+
+      const { id } = req.body
+
+      await Product.delete({ id })
+    }
 
     // response
     return res.json(success({}))
