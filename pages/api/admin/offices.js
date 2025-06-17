@@ -1,92 +1,87 @@
-import db from "../../../components/db"
-import lib from "../../../components/lib"
+import db from "../../../components/db";
+import lib from "../../../components/lib";
 
-const { Office, Product, Recharge } = db
-const { success, midd } = lib
-
+const { Office, Product, Recharge } = db;
+const { success, midd } = lib;
 
 export default async (req, res) => {
-  await midd(req, res)
+  await midd(req, res);
 
-  let offices   = await Office.find({})
-  let products  = await Product.find({})
-  let recharges = await Recharge.find({})
+  let offices = await Office.find({});
+  let products = await Product.find({});
+  let recharges = await Recharge.find({});
 
   for (let office of offices) {
     for (let product of products) {
-      const p = office.products.find(e => e.id == product.id)
+      const p = office.products.find((e) => e.id == product.id);
 
-      if(!p)
+      if (!p)
         office.products.push({
           id: product.id,
           total: 0,
-        })
+        });
     }
   }
 
-  if(req.method == 'GET') {
+  if (req.method == "GET") {
+    offices = offices.map((office) => {
+      office.products = office.products.map((p) => {
+        const product = products.find((e) => e.id == p.id);
+        if (product) {
+          p.name = product.name;
+        } else {
+          p.name = "Producto Desconocido"; // Nombre por defecto si no se encuentra el producto
+        }
+        return p;
+      });
 
-    offices = offices.map(office => {
+      office.recharges = recharges.filter((r) => r.office_id == office.id);
 
-      office.products = office.products.map(p => {
-        const product = products.find(e => e.id == p.id)
-        p.name = product.name
+      return office;
+    });
 
-        return p
-      })
-
-      office.recharges = recharges.filter(r => r.office_id == office.id)
-
-      return office
-    })
-
-    return res.json(success({ offices }))
+    return res.json(success({ offices }));
   }
 
-  if(req.method == 'POST') {
-
-    const { id, products, office } = req.body
+  if (req.method == "POST") {
+    const { id, products, office } = req.body;
     // console.log({ products })
 
-    if(products) {
+    if (products) {
       // const office = await Office.findOne({ id })
-      const office = offices.find(e => e.id == id)
+      const office = offices.find((e) => e.id == id);
       // console.log(office)
 
       products.forEach((p, i) => {
         // console.log({ i , p })
-        office.products[i].total += products[i].total
-      })
+        office.products[i].total += products[i].total;
+      });
 
       // console.log(office)
 
-      await Office.update(
-        { id },
-        { products: office.products }
-      )
+      await Office.update({ id }, { products: office.products });
 
       await Recharge.insert({
-        date:    new Date(),
+        date: new Date(),
         office_id: id,
-        products
-      })
-
+        products,
+      });
     }
 
-    if(office) {
-      console.log(' update office ', office)
+    if (office) {
+      console.log(" update office ", office);
       await Office.update(
         { id },
         {
-          email:    office.email,
+          email: office.email,
           password: office.password,
-          name:     office.name,
-          address:  office.address,
+          name: office.name,
+          address: office.address,
           accounts: office.accounts,
         }
-      )
+      );
     }
 
-    return res.json(success())
+    return res.json(success());
   }
-}
+};
