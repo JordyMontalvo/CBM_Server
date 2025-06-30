@@ -1,30 +1,45 @@
-import db  from "../../../components/db"
-import lib from "../../../components/lib"
-import { MongoClient } from 'mongodb';
+import db from "../../../components/db";
+import lib from "../../../components/lib";
+import { MongoClient } from "mongodb";
 
 const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
-const name = process.env.DB_NAME; 
+const name = process.env.DB_NAME;
 
-const { Affiliation, User, Tree, Token, Transaction, Office } = db
-const { error, success, midd, ids, parent_ids, map, model, rand } = lib
+const { Affiliation, User, Tree, Token, Transaction, Office } = db;
+const { error, success, midd, ids, parent_ids, map, model, rand } = lib;
 
 // valid filters
 // const q = { all: {}, pending: { status: 'pending'} }
 
-const A = ['id',   'date',     'plan', 'voucher', 'status', 'office', 'delivered', 'remaining', 'pay_method', 'bank', 'voucher_date', 'voucher_number', 'amounts', 'price', 'products']
-const U = ['name', 'lastName', 'dni', 'phone']
+const A = [
+  "id",
+  "date",
+  "plan",
+  "voucher",
+  "status",
+  "office",
+  "delivered",
+  "remaining",
+  "pay_method",
+  "bank",
+  "voucher_date",
+  "voucher_number",
+  "amounts",
+  "price",
+  "products",
+];
+const U = ["name", "lastName", "dni", "phone"];
 
-
-let users = null
-let tree = null
+let users = null;
+let tree = null;
 
 const pay = {
-  'pre-basic':[                            ],
-  'basic'   : [0.1                         ],
-  'standard': [0.2, 0.02, 0.02             ],
-  'business': [0.3, 0.02, 0.05, 0.01       ],
-  'master'  : [0.4, 0.02, 0.05, 0.01, 0.005],
-}
+  "pre-basic": [],
+  basic: [0.1],
+  standard: [0.2, 0.02, 0.02],
+  business: [0.3, 0.02, 0.05, 0.01],
+  master: [0.4, 0.02, 0.05, 0.01, 0.005],
+};
 
 // let pays = []
 
@@ -32,43 +47,40 @@ const pay = {
 
 // async function pay_bonus(id, arr, i, aff_id, amount, migration, plan, _id) {
 async function pay_bonus(id, arr, i, aff, amount, migration, plan, _id) {
+  const user = users.find((e) => e.id == id);
+  const node = tree.find((e) => e.id == id);
 
-  const user = users.find(e => e.id == id)
-  const node =  tree.find(e => e.id == id)
+  const virtual = user.activated ? false : true;
 
-  const virtual = user.activated ? false : true
+  const name = migration ? "migration bonus" : "affiliation bonus";
 
-  const name = migration ? 'migration bonus' : 'affiliation bonus'
+  if (user.plan != "default" && i <= user.n - 1) {
+    let p = plan != "basic" ? pay[user.plan][i] : 0.1;
 
-  if(user.plan != 'default' && i <= (user.n - 1)) {
-
-    let p = plan != 'basic' ? pay[user.plan][i] : 0.1
-
-    const id = rand()
+    const id = rand();
 
     await Transaction.insert({
       id,
-      date:           new Date(),
-      user_id:        user.id,
-      type:          'in',
-      value:          p * amount,
+      date: new Date(),
+      user_id: user.id,
+      type: "in",
+      value: p * amount,
       name,
       // affiliation_id: aff_id,
       affiliation_id: aff.id,
       virtual,
-     _user_id:       _id,
-    })
+      _user_id: _id,
+    });
 
     // pays.push(id)
-    aff.transactions.push(id)
+    aff.transactions.push(id);
   }
 
-  if (i == 4 || !node.parent || plan == 'basic') return
+  if (i == 4 || !node.parent || plan == "basic") return;
 
   // pay_bonus(node.parent, arr, i + 1, aff_id, amount, migration, plan, _id)
-  pay_bonus(node.parent, arr, i + 1, aff, amount, migration, plan, _id)
+  pay_bonus(node.parent, arr, i + 1, aff, amount, migration, plan, _id);
 }
-
 
 // async function pay_bonus_2(id, arr, i, aff, amount, plan, _id) {
 
@@ -116,196 +128,202 @@ async function pay_bonus(id, arr, i, aff, amount, migration, plan, _id) {
 // }
 
 function total_pay(id, parent_id, aff) {
-  console.log(id, parent_id)
+  console.log(id, parent_id);
 
-  const node = tree.find(e => e.id == id)
-  console.log(node)
+  const node = tree.find((e) => e.id == id);
+  console.log(node);
 
-  let _pay = 0
-  let r = 0
+  let _pay = 0;
+  let r = 0;
 
-  if(node.parentId == parent_id && !node.closeds) {
-    console.log(':)')
+  if (node.parentId == parent_id && !node.closeds) {
+    console.log(":)");
 
-    if(node.plan == 'basic')    _pay = 50
-    if(node.plan == 'standard') _pay = 150
-    if(node.plan == 'business') _pay = 300
-    if(node.plan == 'master')   _pay = 500
+    if (node.plan == "basic") _pay = 50;
+    if (node.plan == "standard") _pay = 150;
+    if (node.plan == "business") _pay = 300;
+    if (node.plan == "master") _pay = 500;
 
-    console.log(_pay)
+    console.log(_pay);
   }
 
-  console.log(aff.plan.id)
+  console.log(aff.plan.id);
 
-  if(aff.plan.id = 'basic')    r = 0.1
-  if(aff.plan.id = 'standard') r = 0.2
-  if(aff.plan.id = 'business') r = 0.3
-  if(aff.plan.id = 'master')   r = 0.4
-  console.log(r)
+  if ((aff.plan.id = "basic")) r = 0.1;
+  if ((aff.plan.id = "standard")) r = 0.2;
+  if ((aff.plan.id = "business")) r = 0.3;
+  if ((aff.plan.id = "master")) r = 0.4;
+  console.log(r);
 
-  _pay = _pay * r
-  console.log(_pay)
+  _pay = _pay * r;
+  console.log(_pay);
 
-  aff.plan._pay += _pay
+  aff.plan._pay += _pay;
 
-  node.childs.forEach(_id => {
-    total_pay(_id, parent_id, aff)
-  })
+  node.childs.forEach((_id) => {
+    total_pay(_id, parent_id, aff);
+  });
 }
 
-
 const handler = async (req, res) => {
-
-  if(req.method == 'GET') {
+  if (req.method == "GET") {
     // Obtener parámetros de paginación
-    const { filter, page = 1, limit = 20, search } = req.query
-    console.log('Received request with page:', page, 'and limit:', limit, 'search:', search);
-    
-    // Convertir a números
-    const pageNum = parseInt(page, 10);
-    const limitNum = parseInt(limit, 10);
-    
-    const q = { all: {}, pending: { status: 'pending'} }
+    const { filter, page = 1, limit = 20, search } = req.query;
+    console.log(
+      "Received request with page:",
+      page,
+      "and limit:",
+      limit,
+      "search:",
+      search
+    );
 
-    if (!(filter in q)) return res.json(error('invalid filter'))
+    const q = { all: {}, pending: { status: "pending" } };
 
-    const { account } = req.query
+    if (!(filter in q)) return res.json(error("invalid filter"));
+
+    const { account } = req.query;
 
     // get AFFILIATIONS
-    let qq = q[filter]
+    let qq = q[filter];
 
-    if(account != 'admin') qq.office = account
+    if (account != "admin") qq.office = account;
 
     try {
-      // Primero obtener todas las afiliaciones que coinciden con el filtro
-      let allAffiliations = await Affiliation.find(qq);
-      
-      // get USERS for affiliations
-      let users = await User.find({})
-      users = map(users)
+      const client = new MongoClient(URL);
+      await client.connect();
+      const dbClient = client.db(name);
 
-      // Apply search if search parameter exists
-      if (search) {
-        const searchLower = search.toLowerCase();
-        allAffiliations = allAffiliations.filter(aff => {
-          const user = users.get(aff.userId);
-          return user && (
-            user.name?.toLowerCase().includes(searchLower) ||
-            user.lastName?.toLowerCase().includes(searchLower) ||
-            user.dni?.toLowerCase().includes(searchLower) ||
-            user.phone?.toLowerCase().includes(searchLower)
-          );
-        });
-      }
-      
-      // Ordenar manualmente por fecha (del más reciente al más antiguo)
-      allAffiliations.sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      // Obtener el total antes de paginar
-      const totalAffiliations = allAffiliations.length;
-      
-      // Aplicar paginación manualmente
-      let affiliations = allAffiliations.slice((pageNum - 1) * limitNum, pageNum * limitNum);
-      
+      // PAGINACIÓN Y ORDENAMIENTO EN LA BASE DE DATOS
+      const pageNum = parseInt(page, 10);
+      const limitNum = parseInt(limit, 10);
+      const skip = (pageNum - 1) * limitNum;
+
+      // Total de afiliaciones
+      const totalAffiliations = await dbClient
+        .collection("affiliations")
+        .countDocuments(qq);
+
+      // Afiliaciones paginadas y ordenadas
+      let affiliations = await dbClient
+        .collection("affiliations")
+        .find(qq)
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .toArray();
+
       // Obtener solo los usuarios necesarios para las afiliaciones paginadas
-      users = await User.find({ id: { $in: ids(affiliations) } })
-      users = map(users)
+      users = await User.find({ id: { $in: ids(affiliations) } });
+      users = map(users);
 
       // enrich affiliations
-      affiliations = affiliations.map(a => {
-        let u = users.get(a.userId)
-        a = model(a, A)
-        u = model(u, U)
-        return { ...a, ...u }
-      })
+      affiliations = affiliations.map((a) => {
+        let u = users.get(a.userId);
+        a = model(a, A);
+        u = model(u, U);
+        return { ...a, ...u };
+      });
 
-      let parents = await User.find({ id: { $in: parent_ids(affiliations) } })
+      let parents = await User.find({ id: { $in: parent_ids(affiliations) } });
+
+      await client.close();
 
       // Devolver los resultados con información de paginación
-      return res.json(success({
-        affiliations,
-        total: totalAffiliations,
-        totalPages: Math.ceil(totalAffiliations / limitNum),
-        currentPage: pageNum,
-      }));
+      return res.json(
+        success({
+          affiliations,
+          total: totalAffiliations,
+          totalPages: Math.ceil(totalAffiliations / limitNum),
+          currentPage: pageNum,
+        })
+      );
     } catch (err) {
-      console.error('Database error:', err);
-      return res.status(500).json(error('Database error'));
+      console.error("Database error:", err);
+      return res.status(500).json(error("Database error"));
     }
   }
 
-
-  if(req.method == 'POST') {
+  if (req.method == "POST") {
     const { id, action, voucher } = req.body;
 
     // get affiliation
     let affiliation = await Affiliation.findOne({ id });
 
     // validate affiliation
-    if (!affiliation) return res.json(error('affiliation not exist'));
+    if (!affiliation) return res.json(error("affiliation not exist"));
 
-    if (action == 'updateVoucher') {
-      console.log('updateVoucher ...')
-      console.log({ id, voucher })
+    if (action == "updateVoucher") {
+      console.log("updateVoucher ...");
+      console.log({ id, voucher });
       await Affiliation.update({ id }, { voucher });
       return res.json(success());
     }
 
-    if(action == 'approve' || action == 'reject') {
-      if(affiliation.status == 'approved') return res.json(error('already approved'))
-      if(affiliation.status == 'rejected') return res.json(error('already rejected'))
+    if (action == "approve" || action == "reject") {
+      if (affiliation.status == "approved")
+        return res.json(error("already approved"));
+      if (affiliation.status == "rejected")
+        return res.json(error("already rejected"));
     }
 
-    if(action == 'approve') {
-
+    if (action == "approve") {
       // approve AFFILIATION
-      await Affiliation.update({ id }, { status: 'approved' })
-
+      await Affiliation.update({ id }, { status: "approved" });
 
       // update USER
-      let user = await User.findOne({ id: affiliation.userId })
+      let user = await User.findOne({ id: affiliation.userId });
 
-      await User.update({ id: user.id }, {
-        affiliated:         true,
-        activated:          true,
-        affiliation_date:   new Date(),
-        plan:               affiliation.plan.id,
-        n:                  affiliation.plan.n,
-        affiliation_points: affiliation.plan.affiliation_points,
-      })
+      await User.update(
+        { id: user.id },
+        {
+          affiliated: true,
+          activated: true,
+          affiliation_date: new Date(),
+          plan: affiliation.plan.id,
+          n: affiliation.plan.n,
+          affiliation_points: affiliation.plan.affiliation_points,
+        }
+      );
 
-      const parent = await User.findOne({ id: user.parentId })
+      const parent = await User.findOne({ id: user.parentId });
 
       // pay BONUS
-      tree  = await Tree.find({})
-      users = await User.find({})
+      tree = await Tree.find({});
+      users = await User.find({});
       // pays  = []
 
-      if(user.plan == 'default') {
-
+      if (user.plan == "default") {
         // PAY AFFILIATION BONUS
 
-        const plan   = affiliation.plan.id
-        const amount = affiliation.plan.amount
-        console.log(1)
+        const plan = affiliation.plan.id;
+        const amount = affiliation.plan.amount;
+        console.log(1);
         // pay_bonus(user.parentId, pay, 0, affiliation.id, amount, false, plan, user.id)
 
-        if(plan != 'pre-basic') {
-          pay_bonus(user.parentId, pay, 0, affiliation, amount, false, plan, user.id)
-          console.log(2)
+        if (plan != "pre-basic") {
+          pay_bonus(
+            user.parentId,
+            pay,
+            0,
+            affiliation,
+            amount,
+            false,
+            plan,
+            user.id
+          );
+          console.log(2);
         }
 
         // .................................................................
 
-        tree.forEach(node => {
+        tree.forEach((node) => {
+          const _user = users.find((e) => e.id == node.id);
 
-          const _user = users.find(e => e.id == node.id)
-
-          node.parentId = _user.parentId
-          node.plan     = _user.plan
-        })
+          node.parentId = _user.parentId;
+          node.plan = _user.plan;
+        });
         // console.log(3)
-
 
         // _affs = await Affiliation.find({})
 
@@ -326,57 +344,51 @@ const handler = async (req, res) => {
 
         // .................................................................
 
-
         // const _pay = affiliation.plan.pay - (affiliation.amounts ? affiliation.amounts[1] : 0)
         // console.log({ _pay })
 
-        affiliation.plan._pay = 0
+        affiliation.plan._pay = 0;
 
-        const node = tree.find(e => e.id == user.id)
-        console.log(node)
+        const node = tree.find((e) => e.id == user.id);
+        console.log(node);
 
-        node.childs.forEach(_id => {
-          total_pay(_id, node.id, affiliation)
-        })
+        node.childs.forEach((_id) => {
+          total_pay(_id, node.id, affiliation);
+        });
 
-        console.log('affiliation.plan._pay: ', affiliation.plan._pay)
+        console.log("affiliation.plan._pay: ", affiliation.plan._pay);
 
-
-        if(affiliation.plan._pay) {
-
-          let _id = rand()
+        if (affiliation.plan._pay) {
+          let _id = rand();
 
           await Transaction.insert({
-            id:     _id,
-            date:    new Date(),
+            id: _id,
+            date: new Date(),
             user_id: user.id,
-            type:   'in',
-            value:   affiliation.plan._pay,
-            name:   'remaining',
+            type: "in",
+            value: affiliation.plan._pay,
+            name: "remaining",
             virtual: false,
-          })
+          });
 
-          affiliation.transactions.push(_id)
+          affiliation.transactions.push(_id);
         }
 
-
-        if(affiliation.amounts && affiliation.amounts[1]) {
-
-          let _id = rand()
+        if (affiliation.amounts && affiliation.amounts[1]) {
+          let _id = rand();
 
           await Transaction.insert({
-            id:     _id,
-            date:    new Date(),
+            id: _id,
+            date: new Date(),
             user_id: user.id,
-            type:   'out',
-            value:   affiliation.amounts[1],
-            name:   'remaining',
+            type: "out",
+            value: affiliation.amounts[1],
+            name: "remaining",
             virtual: false,
-          })
+          });
 
-          affiliation.transactions.push(_id)
+          affiliation.transactions.push(_id);
         }
-
 
         // if(_pay > 0) {
 
@@ -439,136 +451,156 @@ const handler = async (req, res) => {
 
         //   pays.push(_id)
         // }
-
       } else {
-
         // PAY AFFILIATION BONUS
 
-        const plan   = affiliation.plan.id
-        const amount = affiliation.plan.amount
+        const plan = affiliation.plan.id;
+        const amount = affiliation.plan.amount;
 
         // pay_bonus(user.parentId, pay, 0, affiliation.id, amount, true, plan, user.id)
 
-        if(plan != 'pre-basic') {
-          pay_bonus(user.parentId, pay, 0, affiliation, amount, true, plan, user.id)
+        if (plan != "pre-basic") {
+          pay_bonus(
+            user.parentId,
+            pay,
+            0,
+            affiliation,
+            amount,
+            true,
+            plan,
+            user.id
+          );
         }
       }
 
       // await Affiliation.update({ id }, { transactions: pays })
-      await Affiliation.update({ id }, { transactions: affiliation.transactions })
-
+      await Affiliation.update(
+        { id },
+        { transactions: affiliation.transactions }
+      );
 
       // UPDATE STOCK
       // console.log('UPDATE STOCK ...')
-      const office_id = affiliation.office
-      const products  = affiliation.products
+      const office_id = affiliation.office;
+      const products = affiliation.products;
 
-      const office = await Office.findOne({ id: office_id })
-
+      const office = await Office.findOne({ id: office_id });
 
       products.forEach((p, i) => {
-        if(office.products[i]) office.products[i].total -= products[i].total
-      })
+        if (office.products[i]) office.products[i].total -= products[i].total;
+      });
 
-      await Office.update({ id: office_id }, {
-        products: office.products,
-      })
+      await Office.update(
+        { id: office_id },
+        {
+          products: office.products,
+        }
+      );
 
       // migrar transaccinoes virtuales
-      const transactions = await Transaction.find({ user_id: user.id, virtual: true })
+      const transactions = await Transaction.find({
+        user_id: user.id,
+        virtual: true,
+      });
 
-      for(let transaction of transactions) {
+      for (let transaction of transactions) {
         // console.log({ transaction })
-        await Transaction.update({ id: transaction.id }, { virtual: false })
+        await Transaction.update({ id: transaction.id }, { virtual: false });
       }
-
     }
 
-    if(action == 'reject') {
-      await Affiliation.update({ id }, { status: 'rejected' })
+    if (action == "reject") {
+      await Affiliation.update({ id }, { status: "rejected" });
 
       // revert transactions
-      if(affiliation.transactions) {
-
-        for(let transactionId of affiliation.transactions) {
-          await Transaction.delete({ id: transactionId })
+      if (affiliation.transactions) {
+        for (let transactionId of affiliation.transactions) {
+          await Transaction.delete({ id: transactionId });
         }
       }
     }
 
-    if(action == 'check') {
-      await Affiliation.update({ id }, { delivered: true })
+    if (action == "check") {
+      await Affiliation.update({ id }, { delivered: true });
     }
 
-    if(action == 'uncheck') {
-      await Affiliation.update({ id }, { delivered: false })
-
+    if (action == "uncheck") {
+      await Affiliation.update({ id }, { delivered: false });
     }
 
-
-    if(action == 'revert') {
+    if (action == "revert") {
       // console.log('revert')
 
-      const user = await User.findOne({ id: affiliation.userId })
+      const user = await User.findOne({ id: affiliation.userId });
 
-      await Affiliation.delete({ id })
+      await Affiliation.delete({ id });
 
-      const transactions = affiliation.transactions
+      const transactions = affiliation.transactions;
       // console.log(transactions)
 
-      for(let id of transactions) {
-        await Transaction.delete({ id })
+      for (let id of transactions) {
+        await Transaction.delete({ id });
       }
 
-      const affiliations = await Affiliation.find({ userId: user.id, status: 'approved' })
+      const affiliations = await Affiliation.find({
+        userId: user.id,
+        status: "approved",
+      });
 
-      if(affiliations.length) {
+      if (affiliations.length) {
+        affiliation = affiliations[affiliations.length - 1];
 
-        affiliation = affiliations[affiliations.length - 1]
-
-        await User.update({ id: user.id }, {
-          // affiliated: false,
-          activated: false,
-         _activated: false,
-          plan: affiliation.plan.id,
-          affiliation_date: affiliation.date,
-          affiliation_points: affiliation.plan.affiliation_points,
-          n: affiliation.plan.n,
-        })
-
+        await User.update(
+          { id: user.id },
+          {
+            // affiliated: false,
+            activated: false,
+            _activated: false,
+            plan: affiliation.plan.id,
+            affiliation_date: affiliation.date,
+            affiliation_points: affiliation.plan.affiliation_points,
+            n: affiliation.plan.n,
+          }
+        );
       } else {
-
-        await User.update({ id: user.id }, {
-          affiliated: false,
-          activated: false,
-         _activated: false,
-          plan: 'default',
-          affiliation_date: null,
-          affiliation_points: 0,
-          n: 0,
-        })
-
+        await User.update(
+          { id: user.id },
+          {
+            affiliated: false,
+            activated: false,
+            _activated: false,
+            plan: "default",
+            affiliation_date: null,
+            affiliation_points: 0,
+            n: 0,
+          }
+        );
       }
 
       // UPDATE STOCK
       // console.log('UPDATE STOCK ...')
-      const office_id = affiliation.office
-      const products  = affiliation.products
+      const office_id = affiliation.office;
+      const products = affiliation.products;
 
-      const office = await Office.findOne({ id: office_id })
-
+      const office = await Office.findOne({ id: office_id });
 
       products.forEach((p, i) => {
-        if(office.products[i]) office.products[i].total += products[i].total
-      })
+        if (office.products[i]) office.products[i].total += products[i].total;
+      });
 
-      await Office.update({ id: office_id }, {
-        products: office.products,
-      })
+      await Office.update(
+        { id: office_id },
+        {
+          products: office.products,
+        }
+      );
     }
 
-    return res.json(success())
+    return res.json(success());
   }
-}
+};
 
-export default async (req, res) => { await midd(req, res); return handler(req, res) }
+export default async (req, res) => {
+  await midd(req, res);
+  return handler(req, res);
+};

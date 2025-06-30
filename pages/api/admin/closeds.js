@@ -350,7 +350,7 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit =25, startAfter, page = 1 } = req.query;
+    const { limit = 25, startAfter, page = 1 } = req.query;
     const limitNum = parseInt(limit, 25);
     const skip = (parseInt(page, 10) - 1) * limitNum;
 
@@ -373,7 +373,7 @@ export default async (req, res) => {
         .collection("closeds")
         .countDocuments(query);
 
-      // Luego obtener los documentos paginados
+      // Luego obtener los documentos paginados y ordenados por fecha DESC
       const closeds = await database
         .collection("closeds")
         .find(query, {
@@ -386,12 +386,10 @@ export default async (req, res) => {
             tree: 1,
           },
         })
+        .sort({ date: -1 }) // Ordenar en la base de datos
         .skip(skip)
         .limit(limitNum)
         .toArray();
-
-      // Ordenar los resultados en memoria
-      closeds.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       await client.close();
 

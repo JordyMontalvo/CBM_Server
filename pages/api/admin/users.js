@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import db from "../../../components/db";
 import lib from "../../../components/lib";
+import { MongoClient } from "mongodb";
 
 const { User, Transaction } = db;
 const { error, success, midd, model } = lib;
@@ -29,163 +30,143 @@ const U = [
   "rank",
 ];
 
+const URL = process.env.DB_URL;
+const name = process.env.DB_NAME;
+
 const handler = async (req, res) => {
   if (req.method == "GET") {
-    console.log("GET ...");
-
     const { filter, page = 1, limit = 20, search, showAvailable } = req.query;
-    console.log(
-      "Received request with page:",
-      page,
-      "and limit:",
-      limit,
-      "search:",
-      search
-    );
-
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
+    const skip = (pageNum - 1) * limitNum;
 
     const q = {
       all: {},
       affiliated: { affiliated: true },
       activated: { activated: true },
     };
-
-    // validate filter
     if (!(filter in q)) return res.json(error("invalid filter"));
 
-    // get users
-    let allUsers = await User.find(q[filter]);
-
-    const transaction = await Transaction.find({
-      virtual: { $in: [null, false] },
-    }); // Asegúrate de que esta línea esté antes de usar 'transactions'
-
-    // Filtrar usuarios con saldo disponible
-    if (showAvailable === "true") {
-      allUsers = allUsers.filter((user) => {
-        const ins = transaction
-          .filter((i) => i.user_id == user.id && i.type == "in")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const outs = transaction
-          .filter((i) => i.user_id == user.id && i.type == "out")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        return ins - outs > 0; // Solo usuarios con saldo disponible
-      });
-    }
-
-    // Apply search if search parameter exists
+    // Construir query de búsqueda
+    let userSearchQuery = { ...q[filter] };
     if (search) {
       const searchLower = search.toLowerCase();
-      allUsers = allUsers.filter(
-        (user) =>
-          user.name?.toLowerCase().includes(searchLower) ||
-          user.lastName?.toLowerCase().includes(searchLower) ||
-          user.dni?.toLowerCase().includes(searchLower) ||
-          user.country?.toLowerCase().includes(searchLower) ||
-          user.phone?.toLowerCase().includes(searchLower)
-      );
-
-      console.log({ allUsers });
+      userSearchQuery.$or = [
+        { name: { $regex: searchLower, $options: "i" } },
+        { lastName: { $regex: searchLower, $options: "i" } },
+        { dni: { $regex: searchLower, $options: "i" } },
+        { country: { $regex: searchLower, $options: "i" } },
+        { phone: { $regex: searchLower, $options: "i" } },
+      ];
     }
 
-    // Ordenar usuarios por fecha (más reciente primero)
-    allUsers.sort((a, b) => new Date(b.date) - new Date(a.date));
+    try {
+      const client = new MongoClient(URL);
+      await client.connect();
+      const db = client.db(name);
 
-    const totalUsers = allUsers.length;
+      // Total de usuarios
+      const totalUsers = await db
+        .collection("users")
+        .countDocuments(userSearchQuery);
 
-    // Aplicar paginación
-    const skip = (pageNum - 1) * limitNum;
-    let users = allUsers.slice(skip, skip + limitNum);
+      // Usuarios paginados y ordenados
+      let users = await db
+        .collection("users")
+        .find(userSearchQuery)
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .toArray();
 
-    // Obtener los padres antes de usarlos
-    const parentIds = users.filter((i) => i.parentId).map((i) => i.parentId);
-    const parents = await User.find({ id: { $in: parentIds } });
-
-    // Asegúrate de que los padres se obtengan antes de usarlos
-    users = users.map((user) => {
-      if (user.parentId) {
-        const i = parents.findIndex((el) => el.id == user.parentId);
-        if (i !== -1) {
-          user.parent = parents[i]; // Asigna el objeto padre al usuario
-        }
+      // Si showAvailable, filtrar usuarios con saldo disponible
+      if (showAvailable === "true") {
+        const userIds = users.map((u) => u.id);
+        const transaction = await db
+          .collection("transactions")
+          .find({ user_id: { $in: userIds }, virtual: { $in: [null, false] } })
+          .toArray();
+        users = users.filter((user) => {
+          const ins = transaction
+            .filter((i) => i.user_id == user.id && i.type == "in")
+            .reduce((a, b) => a + parseFloat(b.value), 0);
+          const outs = transaction
+            .filter((i) => i.user_id == user.id && i.type == "out")
+            .reduce((a, b) => a + parseFloat(b.value), 0);
+          return ins - outs > 0;
+        });
       }
-      return user; // Asegúrate de devolver el usuario modificado
-    });
 
-    const transactions = await Transaction.find({
-      virtual: { $in: [null, false] },
-    });
-    console.log("transactions ...");
+      // Obtener los padres antes de usarlos
+      const parentIds = users.filter((i) => i.parentId).map((i) => i.parentId);
+      const parents =
+        parentIds.length > 0
+          ? await db
+              .collection("users")
+              .find({ id: { $in: parentIds } })
+              .toArray()
+          : [];
+      users = users.map((user) => {
+        if (user.parentId) {
+          const i = parents.findIndex((el) => el.id == user.parentId);
+          if (i !== -1) {
+            user.parent = parents[i];
+          }
+        }
+        return user;
+      });
 
-    const virtualTransactions = await Transaction.find({ virtual: true });
-    console.log("virtualTransactions ...");
+      // Obtener transacciones solo de estos usuarios
+      const userIds = users.map((u) => u.id);
+      const transactions = await db
+        .collection("transactions")
+        .find({ user_id: { $in: userIds }, virtual: { $in: [null, false] } })
+        .toArray();
+      const virtualTransactions = await db
+        .collection("transactions")
+        .find({ user_id: { $in: userIds }, virtual: true })
+        .toArray();
 
-    // parse user
-    const totalBalance = allUsers.reduce((total, user) => {
-      const ins = transactions
-        .filter((i) => i.user_id == user.id && i.type == "in")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      const outs = transactions
-        .filter((i) => i.user_id == user.id && i.type == "out")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      return total + (ins - outs); // Sumar el saldo de cada usuario
-    }, 0);
+      // Calcular balances solo para los usuarios paginados
+      users = users.map((user) => {
+        const ins = transactions
+          .filter((i) => i.user_id == user.id && i.type == "in")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        const outs = transactions
+          .filter((i) => i.user_id == user.id && i.type == "out")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        user.balance = ins - outs;
+        const virtualIns = virtualTransactions
+          .filter((i) => i.user_id == user.id && i.type == "in")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        const virtualOuts = virtualTransactions
+          .filter((i) => i.user_id == user.id && i.type == "out")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        user.virtualbalance = virtualIns - virtualOuts;
+        return user;
+      });
 
-    // Calcular el saldo no disponible
-    const totalVirtualBalance = allUsers.reduce((total, user) => {
-      const virtualIns = virtualTransactions
-        .filter((i) => i.user_id == user.id && i.type == "in")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      const virtualOuts = virtualTransactions
-        .filter((i) => i.user_id == user.id && i.type == "out")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      return total + (virtualIns - virtualOuts); // Sumar el saldo virtual de cada usuario
-    }, 0);
+      // parse user
+      users = users.map((user) => {
+        const u = model(user, U);
+        return { ...u };
+      });
 
-    // Calcular el saldo para los usuarios que se están enviando
-    users = users.map((user) => {
-      const ins = transactions
-        .filter((i) => i.user_id == user.id && i.type == "in")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      const outs = transactions
-        .filter((i) => i.user_id == user.id && i.type == "out")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      user.balance = ins - outs;
+      await client.close();
 
-      const virtualIns = virtualTransactions
-        .filter((i) => i.user_id == user.id && i.type == "in")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      const virtualOuts = virtualTransactions
-        .filter((i) => i.user_id == user.id && i.type == "out")
-        .reduce((a, b) => a + parseFloat(b.value), 0);
-      user.virtualbalance = virtualIns - virtualOuts;
-
-      return user; // Asegúrate de devolver el usuario modificado
-    });
-    // console.log({ users })
-
-    // parse user
-    users = users.map((user) => {
-      const u = model(user, U);
-      return { ...u };
-    });
-    // Cambia esto para obtener todos los usuarios
-
-    // Calcular el saldo total de todos los usuarios
-
-    // response con información de paginación
-    return res.json(
-      success({
-        users,
-        total: totalUsers,
-        totalPages: Math.ceil(totalUsers / limitNum),
-        currentPage: pageNum,
-        totalBalance,
-        totalVirtualBalance,
-      })
-    );
+      // response con información de paginación
+      return res.json(
+        success({
+          users,
+          total: totalUsers,
+          totalPages: Math.ceil(totalUsers / limitNum),
+          currentPage: pageNum,
+        })
+      );
+    } catch (err) {
+      console.error("Database error:", err);
+      return res.status(500).json(error("Database error"));
+    }
   }
 
   if (req.method == "POST") {
@@ -216,7 +197,15 @@ const handler = async (req, res) => {
 
       const { _name, _lastName, _dni, _password, _parent_dni, _points, _rank } =
         req.body.data;
-      console.log({ _name, _lastName, _dni, _password, _parent_dni, _points, _rank });
+      console.log({
+        _name,
+        _lastName,
+        _dni,
+        _password,
+        _parent_dni,
+        _points,
+        _rank,
+      });
 
       const user = await User.findOne({ id });
 
@@ -229,7 +218,13 @@ const handler = async (req, res) => {
 
       await User.update(
         { id },
-        { name: _name, lastName: _lastName, dni: _dni, points: _points, rank: _rank }
+        {
+          name: _name,
+          lastName: _lastName,
+          dni: _dni,
+          points: _points,
+          rank: _rank,
+        }
       );
 
       if (_password) {
