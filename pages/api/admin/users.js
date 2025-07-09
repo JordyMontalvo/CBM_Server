@@ -152,6 +152,10 @@ const handler = async (req, res) => {
         return { ...u };
       });
 
+      // Calcular totales de los usuarios paginados
+      const totalBalance = users.reduce((sum, u) => sum + (u.balance || 0), 0);
+      const totalVirtualBalance = users.reduce((sum, u) => sum + (u.virtualbalance || 0), 0);
+
       await client.close();
 
       // response con información de paginación
@@ -161,6 +165,8 @@ const handler = async (req, res) => {
           total: totalUsers,
           totalPages: Math.ceil(totalUsers / limitNum),
           currentPage: pageNum,
+          totalBalance,
+          totalVirtualBalance,
         })
       );
     } catch (err) {
