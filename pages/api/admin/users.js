@@ -70,6 +70,51 @@ const handler = async (req, res) => {
         .collection("users")
         .countDocuments(userSearchQuery);
 
+      // --- INICIO: Calcular totales globales ---
+      // Obtener todos los usuarios que cumplen el filtro (sin paginación)
+      const allUsers = await db
+        .collection("users")
+        .find(userSearchQuery)
+        .toArray();
+      const allUserIds = allUsers.map((u) => u.id);
+      // Obtener todas las transacciones de esos usuarios
+      const allTransactions = await db
+        .collection("transactions")
+        .find({ user_id: { $in: allUserIds }, virtual: { $in: [null, false] } })
+        .toArray();
+      const allVirtualTransactions = await db
+        .collection("transactions")
+        .find({ user_id: { $in: allUserIds }, virtual: true })
+        .toArray();
+      // Calcular balances globales
+      const globalBalances = allUsers.map((user) => {
+        const ins = allTransactions
+          .filter((i) => i.user_id == user.id && i.type == "in")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        const outs = allTransactions
+          .filter((i) => i.user_id == user.id && i.type == "out")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        const virtualIns = allVirtualTransactions
+          .filter((i) => i.user_id == user.id && i.type == "in")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        const virtualOuts = allVirtualTransactions
+          .filter((i) => i.user_id == user.id && i.type == "out")
+          .reduce((a, b) => a + parseFloat(b.value), 0);
+        return {
+          balance: ins - outs,
+          virtualbalance: virtualIns - virtualOuts,
+        };
+      });
+      const totalBalance = globalBalances.reduce(
+        (sum, u) => sum + (u.balance || 0),
+        0
+      );
+      const totalVirtualBalance = globalBalances.reduce(
+        (sum, u) => sum + (u.virtualbalance || 0),
+        0
+      );
+      // --- FIN: Calcular totales globales ---
+
       // Usuarios paginados y ordenados
       let users = await db
         .collection("users")
@@ -153,8 +198,6 @@ const handler = async (req, res) => {
       });
 
       // Calcular totales de los usuarios paginados
-      const totalBalance = users.reduce((sum, u) => sum + (u.balance || 0), 0);
-      const totalVirtualBalance = users.reduce((sum, u) => sum + (u.virtualbalance || 0), 0);
 
       await client.close();
 
