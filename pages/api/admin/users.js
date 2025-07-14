@@ -273,6 +273,7 @@ const handler = async (req, res) => {
           dni: _dni,
           points: _points,
           rank: _rank,
+          activated: _points >= 100 ? true : user.activated,
         }
       );
 
