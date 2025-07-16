@@ -312,6 +312,18 @@ class Activation {
     client.close()
     return activations
   }
+  async findLast1000() {
+    const client      = new Client(URL)
+    const conn        = await client.connect()
+    const db          = conn.db(name)
+    const activations = await db.collection('activations')
+      .find({}, { projection: { date: 1, price: 1, points: 1, user_id: 1, _id: 0 } })
+      .sort({ date: -1 })
+      .limit(1000)
+      .toArray()
+    client.close()
+    return activations
+  }
   async insert(activation) {
     const client = new Client(URL)
     const conn   = await client.connect()

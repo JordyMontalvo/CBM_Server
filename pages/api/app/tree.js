@@ -198,7 +198,7 @@ export default async (req, res) => {
   const users = await User.find({ tree: true })
         tree  = await Tree.find({})
 
-  const activations = await Activation.find({})
+  const activations = await Activation.findLast1000()
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
