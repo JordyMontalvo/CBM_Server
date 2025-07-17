@@ -287,7 +287,6 @@ const handler = async (req, res) => {
         }
       );
       // Actualizar total_points en el árbol
-      await updateTotalPointsCascade(User, Tree, user.id);
 
       const parent = await User.findOne({ id: user.parentId });
 

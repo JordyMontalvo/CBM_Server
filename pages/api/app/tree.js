@@ -152,7 +152,7 @@ function total_points(id) {
 
   const node = tree.find(e => e.id == id)
 
-  node.total_points = node.points + node.affiliation_points
+  node.total_points = node.points
 
   node.childs.forEach(_id => {
     node.total_points += total_points(_id)

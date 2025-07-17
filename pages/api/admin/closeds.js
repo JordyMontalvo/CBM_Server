@@ -589,6 +589,7 @@ export default async (req, res) => {
           activated: false,
           _activated: false,
           rank: "none",
+          total_points: 0,
           points: 0,
           affiliation_points: 0,
         }
