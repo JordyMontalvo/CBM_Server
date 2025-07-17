@@ -350,38 +350,24 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    let { filter = "all", account = "admin", limit = 25, startAfter, page = 1 } = req.query;
-    if (!filter || filter === "undefined") filter = "all";
-    if (!account || account === "undefined") account = "admin";
+    const { limit = 25, page = 1 } = req.query;
     const limitNum = parseInt(limit, 25);
     const skip = (parseInt(page, 10) - 1) * limitNum;
-
-    const query = {};
-    if (startAfter) {
-      try {
-        query._id = { $gt: new ObjectId(startAfter) };
-      } catch (e) {
-        return res.status(400).json(lib.error("startAfter inválido"));
-      }
-    }
-    // Si quieres filtrar por account, puedes agregarlo aquí:
-    // if (account !== "admin") query.account = account;
 
     try {
       const client = new MongoClient(URL);
       await client.connect();
       const database = client.db(name);
 
-      // Primero obtener el conteo total
+      // Obtener el conteo total
       const totalCount = await database
         .collection("closeds")
-        .countDocuments(query);
+        .countDocuments({});
 
-      // Usar aggregate con allowDiskUse: true para evitar el error de memoria
+      // Obtener los documentos paginados y ordenados por fecha DESC
       const closeds = await database
         .collection("closeds")
         .aggregate([
-          { $match: query },
           { $sort: { date: -1 } },
           { $skip: skip },
           { $limit: limitNum },
@@ -403,12 +389,10 @@ export default async (req, res) => {
           closeds,
           totalCount,
           currentPage: parseInt(page, 10),
-          totalPages: Math.ceil(totalCount / limitNum),
         })
       );
-    } catch (error) {
-      console.error("Database connection error:", error.message);
-      return res.status(500).json(lib.error("Database connection error"));
+    } catch (err) {
+      return res.status(500).json(lib.error("Database error"));
     }
   }
 
