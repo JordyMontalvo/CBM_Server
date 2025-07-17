@@ -396,6 +396,47 @@ export default async (req, res) => {
     }
   }
 
+  if (req.method === "GET" && req.query.onlyDates === "true") {
+    try {
+      const client = new MongoClient(URL);
+      await client.connect();
+      const database = client.db(name);
+
+      // Traer solo las fechas
+      const dates = await database
+        .collection("closeds")
+        .aggregate([
+          { $project: { _id: 0, date: 1 } },
+          { $sort: { date: -1 } }
+        ])
+        .toArray();
+
+      await client.close();
+
+      return res.json(lib.success({ dates: dates.map(d => d.date) }));
+    } catch (err) {
+      return res.status(500).json(lib.error("Database error"));
+    }
+  }
+
+  if (req.method === "GET" && req.query.date) {
+    try {
+      const client = new MongoClient(URL);
+      await client.connect();
+      const database = client.db(name);
+
+      const cierre = await database
+        .collection("closeds")
+        .findOne({ date: req.query.date });
+
+      await client.close();
+
+      return res.json(lib.success({ cierre }));
+    } catch (err) {
+      return res.status(500).json(lib.error("Database error"));
+    }
+  }
+
   if (req.method == "POST") {
     console.log("POST ...");
 
