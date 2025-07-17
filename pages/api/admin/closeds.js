@@ -355,13 +355,24 @@ export default async (req, res) => {
   // check verified
   // if(!user.verified) return res.json(error('unverified user'))
 
-  const closeds = await Closed.find({})
-
   if(req.method == 'GET') {
+    // Parámetros de paginación
+    const page = parseInt(req.query.page || '1', 10);
+    const limit = parseInt(req.query.limit || '20', 10);
+    const skip = (page - 1) * limit;
+
+    // Obtener cierres paginados y ordenados por fecha descendente
+    let closeds = await Closed.find({});
+    closeds = closeds.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const total = closeds.length;
+    closeds = closeds.slice(skip, skip + limit);
 
     // response
     return res.json(success({
       closeds,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
     }))
   }
 

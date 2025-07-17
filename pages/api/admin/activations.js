@@ -184,6 +184,11 @@ export default async (req, res) => {
 
     if (action == "approve") {
       console.log("1");
+      // Filtrar productos antes de actualizar la activación
+      if (Array.isArray(activation.products)) {
+        activation.products = activation.products.filter(p => p.total > 0);
+        await Activation.update({ id }, { products: activation.products });
+      }
       await Activation.update({ id }, { status: "approved" });
 
       const user = await User.findOne({ id: activation.userId });
