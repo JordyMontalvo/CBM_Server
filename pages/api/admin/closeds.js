@@ -6,7 +6,7 @@ const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definid
 const name = process.env.DB_NAME;
 
 const { Product, User, Session, Affiliation, Activation } = db;
-const { midd, success, rand } = lib;
+const { midd, success, error, rand } = lib;
 
 const { Tree, Transaction, Closed } = db;
 
@@ -347,96 +347,22 @@ function pay_residual(id, n, user) {
 }
 
 export default async (req, res) => {
-  await lib.midd(req, res);
+  await midd(req, res)
 
-  if (req.method === "GET") {
-    const { limit = 25, page = 1 } = req.query;
-    const limitNum = parseInt(limit, 25);
-    const skip = (parseInt(page, 10) - 1) * limitNum;
+  let { session } = req.query
 
-    try {
-      const client = new MongoClient(URL);
-      await client.connect();
-      const database = client.db(name);
+  // valid session
+  // check verified
+  // if(!user.verified) return res.json(error('unverified user'))
 
-      // Obtener el conteo total
-      const totalCount = await database
-        .collection("closeds")
-        .countDocuments({});
+  const closeds = await Closed.find({})
 
-      // Obtener los documentos paginados y ordenados por fecha DESC
-      const closeds = await database
-        .collection("closeds")
-        .aggregate([
-          { $sort: { date: -1 } },
-          { $skip: skip },
-          { $limit: limitNum },
-          { $project: {
-            field1: 1,
-            field2: 1,
-            field3: 1,
-            date: 1,
-            users: 1,
-            tree: 1,
-          } }
-        ], { allowDiskUse: true })
-        .toArray();
+  if(req.method == 'GET') {
 
-      await client.close();
-
-      return res.json(
-        lib.success({
-          closeds,
-          totalCount,
-          currentPage: parseInt(page, 10),
-        })
-      );
-    } catch (err) {
-      return res.status(500).json(lib.error("Database error"));
-    }
-  }
-
-  if (req.method === "GET" && req.query.onlyDates === "true") {
-    try {
-      const client = new MongoClient(URL);
-      await client.connect();
-      const database = client.db(name);
-
-      // Traer solo las fechas usando find
-      const dates = await database
-        .collection("closeds")
-        .find({}, { projection: { _id: 0, date: 1 } })
-        .sort({ date: -1 })
-        .toArray();
-
-      await client.close();
-
-      // Filtrar solo fechas válidas
-      const validDates = dates.map(d => d.date).filter(Boolean);
-
-      return res.json(lib.success({ dates: validDates }));
-    } catch (err) {
-      console.error("Error en onlyDates:", err);
-      return res.status(500).json(lib.error("Database error: " + err.message));
-    }
-  }
-
-  if (req.method === "GET" && req.query.date) {
-    try {
-      const client = new MongoClient(URL);
-      await client.connect();
-      const database = client.db(name);
-
-      const cierre = await database
-        .collection("closeds")
-        .findOne({ date: req.query.date });
-
-      await client.close();
-
-      return res.json(lib.success({ cierre }));
-    } catch (err) {
-      return res.status(500).json(lib.error("Database error"));
-    }
+    // response
+    return res.json(success({
+      closeds,
+    }))
   }
 
   if (req.method == "POST") {
