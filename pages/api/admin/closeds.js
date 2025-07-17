@@ -402,13 +402,11 @@ export default async (req, res) => {
       await client.connect();
       const database = client.db(name);
 
-      // Traer solo las fechas
+      // Traer solo las fechas usando find
       const dates = await database
         .collection("closeds")
-        .aggregate([
-          { $project: { _id: 0, date: 1 } },
-          { $sort: { date: -1 } }
-        ])
+        .find({}, { projection: { _id: 0, date: 1 } })
+        .sort({ date: -1 })
         .toArray();
 
       await client.close();
