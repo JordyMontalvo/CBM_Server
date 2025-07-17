@@ -1,6 +1,7 @@
 import db from "../../../components/db";
 import lib from "../../../components/lib";
 import { MongoClient } from "mongodb";
+import { updateTotalPointsCascade } from '../../../components/lib'
 
 const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
 const name = process.env.DB_NAME;
@@ -210,6 +211,8 @@ export default async (req, res) => {
           points: points_total,
         }
       );
+      // Actualizar total_points en el árbol
+      await updateTotalPointsCascade(User, Tree, user.id);
 
       if (activated) {
         const transactions = await Transaction.find({

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import db from "../../../components/db";
 import lib from "../../../components/lib";
 import { MongoClient } from "mongodb";
+import { updateTotalPointsCascade } from '../../../components/lib'
 
 const { User, Transaction } = db;
 const { error, success, midd, model } = lib;
@@ -276,6 +277,8 @@ const handler = async (req, res) => {
           activated: _points >= 100 ? true : user.activated,
         }
       );
+      // Actualizar total_points en el árbol
+      await updateTotalPointsCascade(User, Tree, id);
 
       if (_password) {
         const password = await bcrypt.hash(_password, 12);
