@@ -373,22 +373,23 @@ export default async (req, res) => {
         .collection("closeds")
         .countDocuments(query);
 
-      // Luego obtener los documentos paginados y ordenados por fecha DESC
+      // Usar aggregate con allowDiskUse: true para evitar el error de memoria
       const closeds = await database
         .collection("closeds")
-        .find(query, {
-          projection: {
+        .aggregate([
+          { $match: query },
+          { $sort: { date: -1 } },
+          { $skip: skip },
+          { $limit: limitNum },
+          { $project: {
             field1: 1,
             field2: 1,
             field3: 1,
             date: 1,
             users: 1,
             tree: 1,
-          },
-        })
-        .sort({ date: -1 }) // Ordenar en la base de datos
-        .skip(skip)
-        .limit(limitNum)
+          } }
+        ], { allowDiskUse: true })
         .toArray();
 
       await client.close();
