@@ -413,9 +413,13 @@ export default async (req, res) => {
 
       await client.close();
 
-      return res.json(lib.success({ dates: dates.map(d => d.date) }));
+      // Filtrar solo fechas válidas
+      const validDates = dates.map(d => d.date).filter(Boolean);
+
+      return res.json(lib.success({ dates: validDates }));
     } catch (err) {
-      return res.status(500).json(lib.error("Database error"));
+      console.error("Error en onlyDates:", err);
+      return res.status(500).json(lib.error("Database error: " + err.message));
     }
   }
 
