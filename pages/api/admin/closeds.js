@@ -350,7 +350,9 @@ export default async (req, res) => {
   await lib.midd(req, res);
 
   if (req.method === "GET") {
-    const { limit = 25, startAfter, page = 1 } = req.query;
+    let { filter = "all", account = "admin", limit = 25, startAfter, page = 1 } = req.query;
+    if (!filter || filter === "undefined") filter = "all";
+    if (!account || account === "undefined") account = "admin";
     const limitNum = parseInt(limit, 25);
     const skip = (parseInt(page, 10) - 1) * limitNum;
 
@@ -362,6 +364,8 @@ export default async (req, res) => {
         return res.status(400).json(lib.error("startAfter inválido"));
       }
     }
+    // Si quieres filtrar por account, puedes agregarlo aquí:
+    // if (account !== "admin") query.account = account;
 
     try {
       const client = new MongoClient(URL);
