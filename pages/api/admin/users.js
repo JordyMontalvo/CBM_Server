@@ -4,7 +4,7 @@ import lib from "../../../components/lib";
 import { MongoClient } from "mongodb";
 import { updateTotalPointsCascade } from '../../../components/lib'
 
-const { User, Transaction } = db;
+const { User, Transaction, Tree} = db;
 const { error, success, midd, model } = lib;
 
 // valid filters
