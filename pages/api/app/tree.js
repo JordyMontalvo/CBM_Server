@@ -239,11 +239,8 @@ export default async (req, res) => {
         _rank: childUser.rank,
       }
     })
-    // Calcular los puntos grupales de cada hijo directo en el mismo orden (incluyendo afiliaciones)
-    children_points = childUsersOrdered.map(childUser => {
-      if (!childUser) return 0
-      return (Number(childUser.points) || 0) + (Number(childUser.affiliation_points) || 0)
-    })
+    // Calcular los puntos grupales de cada hijo directo en el mismo orden
+    children_points = childUsersOrdered.map(childUser => childUser && childUser.total_points || 0)
   }
 
   // Nodo principal con datos de usuario
