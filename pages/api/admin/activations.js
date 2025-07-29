@@ -328,6 +328,7 @@ export default async (req, res) => {
       user.points = user.points - activation.points;
 
       await User.update({ id: user.id }, { points: user.points });
+      await updateTotalPointsCascade(User, Tree, user.id);
 
       const _activated = user._activated ? true : user.points >= 60;
       const activated = user.activated ? true : user.points >= 100;

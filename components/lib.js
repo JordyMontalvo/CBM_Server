@@ -83,7 +83,7 @@ export async function updateTotalPointsCascade(User, Tree, userId) {
   const total_points = (user.points || 0) + (user.affiliation_points || 0) + childrenTotal;
 
   // 5. Guardar el total_points en el usuario
-  await User.update({ id: userId }, { total_points });
+  await User.updateOne({ id: userId }, { total_points });
 
   // 6. Propagar hacia arriba si tiene padre
   if (node.parent) {
