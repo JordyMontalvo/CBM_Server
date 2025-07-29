@@ -205,8 +205,8 @@ export default async (req, res) => {
   // Traer datos de usuario para el nodo
   const nodeUser = await User.findOne({ id: node.id })
 
-  // Calcular total_points en tiempo real incluyendo afiliaciones
-  const total_points = (Number(nodeUser.points) || 0) + (Number(nodeUser.affiliation_points) || 0)
+  // Leer el total_points ya almacenado
+  const total_points = nodeUser.total_points || 0
 
   // Traer los hijos inmediatos
   let children = []
