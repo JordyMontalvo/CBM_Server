@@ -200,15 +200,44 @@ const handler = async (req, res) => {
       const limitNum = parseInt(limit, 10);
       const skip = (pageNum - 1) * limitNum;
 
+      // Construir un objeto de búsqueda para usuarios
+      let userSearchQuery = {};
+      if (search) {
+        const searchLower = search.toLowerCase();
+        userSearchQuery = {
+          $or: [
+            { name: { $regex: searchLower, $options: "i" } },
+            { lastName: { $regex: searchLower, $options: "i" } },
+            { dni: { $regex: searchLower, $options: "i" } },
+            { phone: { $regex: searchLower, $options: "i" } },
+          ],
+        };
+      }
+
+      // Buscar usuarios que coincidan con el query de búsqueda
+      let userIds = [];
+      if (search) {
+        const users = await dbClient
+          .collection("users")
+          .find(userSearchQuery)
+          .toArray();
+        userIds = users.map((user) => user.id); // Obtener los IDs de los usuarios que coinciden
+      }
+
+      // Filtrar afiliaciones según el userIds encontrados
+      const affiliationsQuery = userIds.length > 0 
+        ? { ...qq, userId: { $in: userIds } } 
+        : qq;
+
       // Total de afiliaciones
       const totalAffiliations = await dbClient
         .collection("affiliations")
-        .countDocuments(qq);
+        .countDocuments(affiliationsQuery);
 
       // Afiliaciones paginadas y ordenadas
       let affiliations = await dbClient
         .collection("affiliations")
-        .find(qq)
+        .find(affiliationsQuery)
         .sort({ date: -1 })
         .skip(skip)
         .limit(limitNum)
