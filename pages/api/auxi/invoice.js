@@ -55,35 +55,33 @@ const Invoice = async (req, res) => {
     office = await Office.findOne({ id: activation.office })
   } else {
     // Handle affiliation
-    if (!affiliation.products || affiliation.products.length === 0) {
-      // If no products, create a product from the plan
-      products = [{
-        id: '0000',
-        name: affiliation.plan.name,
-        total: 1,
-        price: affiliation.plan.amount
-      }]
-    } else {
-      // Use existing products
-      products = affiliation.products
-      
-      // Get product details from database
+    userId = affiliation.userId
+    office = await Office.findOne({ id: affiliation.office })
+    
+    // Para afiliaciones, siempre crear un producto basado en el plan
+    products = [{
+      id: '0000',
+      name: affiliation.plan.name,
+      total: 1,
+      price: affiliation.plan.amount
+    }]
+    
+    // Si hay productos adicionales en la afiliación, agregarlos
+    if (affiliation.products && affiliation.products.length > 0) {
       const _products = await Product.find({})
       
-      products.forEach(product => {
+      affiliation.products.forEach(product => {
         const p = _products.find(p => p.id == product.id)
-        if (p) {
-          product.name = p.name
-          product.price = p.price
-        } else {
-          product.name = 'Producto no encontrado'
-          product.price = 0
+        if (p && product.total > 0) {
+          products.push({
+            id: product.id,
+            name: p.name,
+            total: product.total,
+            price: p.price
+          })
         }
       })
     }
-    
-    userId = affiliation.userId
-    office = await Office.findOne({ id: affiliation.office })
   }
 
   // Filter products with total > 0
