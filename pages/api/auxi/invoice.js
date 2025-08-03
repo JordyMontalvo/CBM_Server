@@ -59,11 +59,14 @@ const Invoice = async (req, res) => {
     office = await Office.findOne({ id: affiliation.office })
     
     // Para afiliaciones, solo crear un producto basado en el plan
+    // Usar affiliation.price como fallback si plan.amount no está disponible
+    const planPrice = affiliation.plan && affiliation.plan.amount ? affiliation.plan.amount : affiliation.price
+    
     products = [{
       id: '0000',
-      name: affiliation.plan.name,
+      name: affiliation.plan ? affiliation.plan.name : 'Plan de Afiliación',
       total: 1,
-      price: affiliation.plan.amount
+      price: planPrice
     }]
   }
 
