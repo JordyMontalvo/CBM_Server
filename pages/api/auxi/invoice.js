@@ -63,12 +63,28 @@ const Invoice = async (req, res) => {
     console.log('Plan amount:', affiliation.plan ? affiliation.plan.amount : 'No plan')
     
     // Para afiliaciones, solo crear un producto basado en el plan
-    // Usar affiliation.price como fallback si plan.amount no está disponible
-    let planPrice = affiliation.plan && affiliation.plan.amount ? affiliation.plan.amount : affiliation.price
+    // Usar el precio del plan directamente
+    let planPrice = 0
     
-    // Asegurarse de que el precio sea un número válido
-    if (planPrice === undefined || planPrice === null) {
-      planPrice = 0
+    if (affiliation.plan && affiliation.plan.amount) {
+      planPrice = affiliation.plan.amount
+    } else if (affiliation.price) {
+      planPrice = affiliation.price
+    } else {
+      // Precio por defecto según el tipo de plan
+      if (affiliation.plan && affiliation.plan.id === 'pre-basic') {
+        planPrice = 28 // PLAN PILOTO 90
+      } else if (affiliation.plan && affiliation.plan.id === 'basic') {
+        planPrice = 50 // BÁSICO
+      } else if (affiliation.plan && affiliation.plan.id === 'standard') {
+        planPrice = 150 // ESTÁNDAR
+      } else if (affiliation.plan && affiliation.plan.id === 'business') {
+        planPrice = 300 // PREMIUM
+      } else if (affiliation.plan && affiliation.plan.id === 'master') {
+        planPrice = 500 // ESTRELLA
+      } else {
+        planPrice = 500 // Precio por defecto
+      }
     }
     
     console.log('Final planPrice:', planPrice)
