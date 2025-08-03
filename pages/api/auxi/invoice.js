@@ -58,9 +58,20 @@ const Invoice = async (req, res) => {
     userId = affiliation.userId
     office = await Office.findOne({ id: affiliation.office })
     
+    console.log('Affiliation plan:', affiliation.plan)
+    console.log('Affiliation price:', affiliation.price)
+    console.log('Plan amount:', affiliation.plan ? affiliation.plan.amount : 'No plan')
+    
     // Para afiliaciones, solo crear un producto basado en el plan
     // Usar affiliation.price como fallback si plan.amount no está disponible
-    const planPrice = affiliation.plan && affiliation.plan.amount ? affiliation.plan.amount : affiliation.price
+    let planPrice = affiliation.plan && affiliation.plan.amount ? affiliation.plan.amount : affiliation.price
+    
+    // Asegurarse de que el precio sea un número válido
+    if (planPrice === undefined || planPrice === null) {
+      planPrice = 0
+    }
+    
+    console.log('Final planPrice:', planPrice)
     
     products = [{
       id: '0000',
