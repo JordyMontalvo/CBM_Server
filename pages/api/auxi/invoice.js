@@ -89,13 +89,13 @@ const Invoice = async (req, res) => {
       price: planPrice
     }]
     
-    // Agregar productos elegidos solo con nombre/descripción
+    // Agregar productos elegidos con nombre y precio
     if (affiliation.products && Array.isArray(affiliation.products) && affiliation.products.length > 0) {
       const selectedProducts = affiliation.products.map(product => ({
         id: product.id,
         name: product.name,
         total: product.total,
-        price: 0 // Sin precio, solo descripción
+        price: product.price // Mostrar el precio real del producto
       }))
       products = products.concat(selectedProducts)
     }
