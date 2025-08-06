@@ -54,41 +54,50 @@ const Invoice = async (req, res) => {
     userId = activation.userId
     office = await Office.findOne({ id: activation.office })
   } else {
-    // Handle affiliation - mostrar productos elegidos si existen
+    // Handle affiliation - mostrar plan elegido + productos elegidos
     userId = affiliation.userId
     office = await Office.findOne({ id: affiliation.office })
-
-    if (affiliation.products && Array.isArray(affiliation.products) && affiliation.products.length > 0) {
-      products = affiliation.products
+    
+    // Calcular precio del plan
+    let planPrice = 0
+    if (affiliation.plan && affiliation.plan.amount) {
+      planPrice = affiliation.plan.amount
+    } else if (affiliation.price) {
+      planPrice = affiliation.price
     } else {
-      // Si no hay productos, mostrar solo el plan como producto
-      let planPrice = 0
-      if (affiliation.plan && affiliation.plan.amount) {
-        planPrice = affiliation.plan.amount
-      } else if (affiliation.price) {
-        planPrice = affiliation.price
+      // Precio por defecto según el tipo de plan
+      if (affiliation.plan && affiliation.plan.id === 'pre-basic') {
+        planPrice = 28 // PLAN PILOTO 90
+      } else if (affiliation.plan && affiliation.plan.id === 'basic') {
+        planPrice = 50 // BÁSICO
+      } else if (affiliation.plan && affiliation.plan.id === 'standard') {
+        planPrice = 150 // ESTÁNDAR
+      } else if (affiliation.plan && affiliation.plan.id === 'business') {
+        planPrice = 300 // PREMIUM
+      } else if (affiliation.plan && affiliation.plan.id === 'master') {
+        planPrice = 500 // ESTRELLA
       } else {
-        // Precio por defecto según el tipo de plan
-        if (affiliation.plan && affiliation.plan.id === 'pre-basic') {
-          planPrice = 28 // PLAN PILOTO 90
-        } else if (affiliation.plan && affiliation.plan.id === 'basic') {
-          planPrice = 50 // BÁSICO
-        } else if (affiliation.plan && affiliation.plan.id === 'standard') {
-          planPrice = 150 // ESTÁNDAR
-        } else if (affiliation.plan && affiliation.plan.id === 'business') {
-          planPrice = 300 // PREMIUM
-        } else if (affiliation.plan && affiliation.plan.id === 'master') {
-          planPrice = 500 // ESTRELLA
-        } else {
-          planPrice = 500 // Precio por defecto
-        }
+        planPrice = 500 // Precio por defecto
       }
-      products = [{
-        id: '0000',
-        name: affiliation.plan ? affiliation.plan.name : 'Plan de Afiliación',
-        total: 1,
-        price: planPrice
-      }]
+    }
+    
+    // Crear lista de productos: plan + productos elegidos
+    products = [{
+      id: '0000',
+      name: affiliation.plan ? affiliation.plan.name : 'Plan de Afiliación',
+      total: 1,
+      price: planPrice
+    }]
+    
+    // Agregar productos elegidos solo con nombre/descripción
+    if (affiliation.products && Array.isArray(affiliation.products) && affiliation.products.length > 0) {
+      const selectedProducts = affiliation.products.map(product => ({
+        id: product.id,
+        name: product.name,
+        total: product.total,
+        price: 0 // Sin precio, solo descripción
+      }))
+      products = products.concat(selectedProducts)
     }
   }
 
