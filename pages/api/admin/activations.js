@@ -97,8 +97,13 @@ export default async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
     
     // Validar que el skip no sea demasiado grande (límite de MongoDB)
-    const MAX_SKIP = 1000000; // 1 millón de documentos como límite seguro
+    const MAX_SKIP = 50000; // 50,000 documentos como límite más seguro
     if (skip > MAX_SKIP) {
+      return res.json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+    }
+    
+    // Para páginas muy altas, sugerir usar búsqueda
+    if (pageNum > 500) { // Con 100 por página, 500 páginas = 50,000 registros
       return res.json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
     }
     
@@ -148,17 +153,39 @@ export default async (req, res) => {
 
       console.log("Type of page:", typeof page, "Value:", page);
       console.log("Type of limit:", typeof limit, "Value:", limit);
+      console.log("Skip value:", skip);
+      console.log("Total activations found:", totalActivations);
+      console.log("Total pages calculated:", Math.ceil(totalActivations / limitNum));
       client.close();
 
       // Obtener usuarios relacionados con las activaciones
-      let relatedUsers = await User.find({ id: { $in: lib.ids(activations) } });
-      relatedUsers = lib.map(relatedUsers);
+      console.log("Activations found:", activations.length);
+      console.log("Sample activation:", activations[0]);
+      
+      let relatedUsers = [];
+      if (activations.length > 0) {
+        try {
+          const userIds = lib.ids(activations);
+          console.log("User IDs to fetch:", userIds.length);
+          relatedUsers = await User.find({ id: { $in: userIds } });
+          relatedUsers = lib.map(relatedUsers);
+          console.log("Related users found:", relatedUsers.size);
+        } catch (userError) {
+          console.error("Error fetching related users:", userError);
+          relatedUsers = new Map(); // Fallback a un Map vacío
+        }
+      }
 
       const enrichedActivations = activations.map((a) => {
-        let u = relatedUsers.get(a.userId);
-        a = lib.model(a, A);
-        u = lib.model(u, U);
-        return { ...a, ...u };
+        try {
+          let u = relatedUsers.get(a.userId) || {};
+          a = lib.model(a, A);
+          u = lib.model(u, U);
+          return { ...a, ...u };
+        } catch (mapError) {
+          console.error("Error mapping activation:", mapError, a);
+          return lib.model(a, A); // Retornar solo la activación sin usuario
+        }
       });
 
       return res.json(
@@ -171,7 +198,14 @@ export default async (req, res) => {
       );
     } catch (error) {
       console.error("Database connection error:", error);
-      return res.status(500).json(lib.error("Database connection error"));
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        page: pageNum,
+        limit: limitNum,
+        skip: skip
+      });
+      return res.status(500).json(lib.error("Database connection error: " + error.message));
     }
   }
 
