@@ -199,6 +199,12 @@ const handler = async (req, res) => {
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
       const skip = (pageNum - 1) * limitNum;
+      
+      // Validar que el skip no sea demasiado grande (límite de MongoDB)
+      const MAX_SKIP = 1000000; // 1 millón de documentos como límite seguro
+      if (skip > MAX_SKIP) {
+        return res.json(error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+      }
 
       // Construir un objeto de búsqueda para usuarios
       let userSearchQuery = {};

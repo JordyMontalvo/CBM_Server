@@ -95,6 +95,13 @@ export default async (req, res) => {
     }
 
     const skip = (pageNum - 1) * limitNum;
+    
+    // Validar que el skip no sea demasiado grande (límite de MongoDB)
+    const MAX_SKIP = 1000000; // 1 millón de documentos como límite seguro
+    if (skip > MAX_SKIP) {
+      return res.json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+    }
+    
     console.log(
       "Calculated skip:",
       skip,
