@@ -72,8 +72,8 @@ export default async (req, res) => {
   await midd(req, res);
 
   if (req.method === "GET") {
-    const { filter, page = 1, limit = 100, search } = req.query;
-    console.log("Received request with page:", page, "and limit:", limit);
+    const { filter, page = 1, limit = 100, search, startDate, endDate } = req.query;
+    console.log("Received request with page:", page, "limit:", limit, "startDate:", startDate, "endDate:", endDate);
     const q = { all: {}, pending: { status: "pending" } };
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
@@ -143,10 +143,30 @@ export default async (req, res) => {
       }
 
       // Construir la consulta final combinando filtros
-      const finalQuery = {
+      let finalQuery = {
         ...q[filter], // Aplicar el filtro de estado (pending, all, etc.)
         ...(userIds.length > 0 && { userId: { $in: userIds } }) // Filtro de usuarios si hay búsqueda
       };
+
+      // Añadir filtro de fechas si se proporcionan
+      if (startDate || endDate) {
+        const dateFilter = {};
+        
+        if (startDate) {
+          dateFilter.$gte = new Date(startDate);
+        }
+        
+        if (endDate) {
+          // Añadir 23:59:59 al final del día para incluir todo el día
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(23, 59, 59, 999);
+          dateFilter.$lte = endOfDay;
+        }
+        
+        if (Object.keys(dateFilter).length > 0) {
+          finalQuery.date = dateFilter;
+        }
+      }
 
       // Optimizar la consulta para reducir uso de memoria
       // Primero contar el total sin ordenar
