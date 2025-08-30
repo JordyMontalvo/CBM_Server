@@ -224,10 +224,11 @@ const handler = async (req, res) => {
         userIds = users.map((user) => user.id); // Obtener los IDs de los usuarios que coinciden
       }
 
-      // Filtrar afiliaciones según el userIds encontrados
-      const affiliationsQuery = userIds.length > 0 
-        ? { ...qq, userId: { $in: userIds } } 
-        : qq;
+      // Filtrar afiliaciones según el userIds encontrados Y el filtro de estado
+      const affiliationsQuery = {
+        ...qq, // Aplicar el filtro de estado (pending, all, etc.)
+        ...(userIds.length > 0 && { userId: { $in: userIds } }) // Aplicar filtro de usuarios solo si hay búsqueda
+      };
 
       // Total de afiliaciones
       const totalAffiliations = await dbClient

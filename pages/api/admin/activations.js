@@ -119,10 +119,16 @@ export default async (req, res) => {
         userIds = users.map((user) => user.id); // Obtener los IDs de los usuarios que coinciden
       }
 
+      // Construir la consulta final combinando filtros
+      const finalQuery = {
+        ...q[filter], // Aplicar el filtro de estado (pending, all, etc.)
+        ...(userIds.length > 0 && { userId: { $in: userIds } }) // Filtro de usuarios si hay búsqueda
+      };
+
       // Filtrar activaciones según el userIds encontrados
       const activationsCursor = db
         .collection("activations")
-        .find(userIds.length > 0 ? { userId: { $in: userIds } } : {}) // Si hay userIds, filtrar por ellos
+        .find(finalQuery) // Usar la consulta final
         .sort({ date: -1 })
         .skip(skip)
         .limit(limitNum);
@@ -131,7 +137,7 @@ export default async (req, res) => {
 
       const totalActivations = await db
         .collection("activations")
-        .countDocuments(userIds.length > 0 ? { userId: { $in: userIds } } : {}); // Contar documentos que coinciden
+        .countDocuments(finalQuery); // Usar la misma consulta para el conteo
 
       console.log("Type of page:", typeof page, "Value:", page);
       console.log("Type of limit:", typeof limit, "Value:", limit);
