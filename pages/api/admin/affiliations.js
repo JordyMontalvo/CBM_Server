@@ -198,29 +198,12 @@ const handler = async (req, res) => {
       // PAGINACIÓN Y ORDENAMIENTO EN LA BASE DE DATOS
       const pageNum = parseInt(page, 10);
       const limitNum = parseInt(limit, 10);
-      // Validar que la página sea un número válido
-      if (pageNum < 1 || !Number.isInteger(pageNum)) {
-        console.log("Página inválida:", pageNum);
-        return res.status(400).json(error("Número de página inválido"));
-      }
-
-      // Cursor-based pagination: obtener el último documento de la página anterior
-      let cursorQuery = {};
-      if (pageNum > 1) {
-        // Obtener el último documento de la página anterior para usar como cursor
-        const skipForCursor = (pageNum - 1) * limitNum;
-        const lastDocOfPreviousPage = await dbClient
-          .collection("affiliations")
-          .find(affiliationsQuery)
-          .sort({ date: -1 })
-          .skip(skipForCursor - 1)
-          .limit(1)
-          .toArray();
-        
-        if (lastDocOfPreviousPage.length > 0) {
-          const lastDoc = lastDocOfPreviousPage[0];
-          cursorQuery = { date: { $lt: lastDoc.date } };
-        }
+      const skip = (pageNum - 1) * limitNum;
+      
+      // Validar que el skip no sea demasiado grande (límite de MongoDB)
+      const MAX_SKIP = 1000000; // 1 millón de documentos como límite seguro
+      if (skip > MAX_SKIP) {
+        return res.json(error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
       }
 
       // Construir un objeto de búsqueda para usuarios
@@ -258,16 +241,12 @@ const handler = async (req, res) => {
         .collection("affiliations")
         .countDocuments(affiliationsQuery);
 
-      // Afiliaciones paginadas usando cursor-based pagination
-      const affiliationsQueryWithCursor = {
-        ...affiliationsQuery,
-        ...cursorQuery
-      };
-      
+      // Afiliaciones paginadas y ordenadas
       let affiliations = await dbClient
         .collection("affiliations")
-        .find(affiliationsQueryWithCursor)
+        .find(affiliationsQuery)
         .sort({ date: -1 })
+        .skip(skip)
         .limit(limitNum)
         .toArray();
 
@@ -296,22 +275,10 @@ const handler = async (req, res) => {
           currentPage: pageNum,
         })
       );
-         } catch (err) {
-       console.error("Database error:", err);
-       console.error("Error details:", {
-         page: pageNum,
-         limit: limitNum,
-         filter: filter,
-         search: search
-       });
-       
-       // Determinar el tipo de error y responder apropiadamente
-       if (err.message && err.message.includes('cursor')) {
-         return res.status(400).json(error("Error en la paginación. Intente con una página menor."));
-       }
-       
-       return res.status(500).json(error("Error de conexión a la base de datos"));
-     }
+    } catch (err) {
+      console.error("Database error:", err);
+      return res.status(500).json(error("Database error"));
+    }
   }
 
   if (req.method == "POST") {
