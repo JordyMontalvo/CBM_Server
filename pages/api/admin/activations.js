@@ -99,7 +99,14 @@ export default async (req, res) => {
     // Validar que el skip no sea demasiado grande (límite de MongoDB)
     const MAX_SKIP = 1000000; // 1 millón de documentos como límite seguro
     if (skip > MAX_SKIP) {
-      return res.json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+      console.log("Skip demasiado alto:", skip, "página:", pageNum);
+      return res.status(400).json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+    }
+    
+    // Validar que la página sea un número válido
+    if (pageNum < 1 || !Number.isInteger(pageNum)) {
+      console.log("Página inválida:", pageNum);
+      return res.status(400).json(lib.error("Número de página inválido"));
     }
     
     console.log(
@@ -171,7 +178,20 @@ export default async (req, res) => {
       );
     } catch (error) {
       console.error("Database connection error:", error);
-      return res.status(500).json(lib.error("Database connection error"));
+      console.error("Error details:", {
+        page: pageNum,
+        limit: limitNum,
+        skip: skip,
+        filter: filter,
+        search: search
+      });
+      
+      // Determinar el tipo de error y responder apropiadamente
+      if (error.message && error.message.includes('skip')) {
+        return res.status(400).json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
+      }
+      
+      return res.status(500).json(lib.error("Error de conexión a la base de datos"));
     }
   }
 
