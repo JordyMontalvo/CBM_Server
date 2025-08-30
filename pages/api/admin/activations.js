@@ -72,7 +72,7 @@ export default async (req, res) => {
   await midd(req, res);
 
   if (req.method === "GET") {
-    const { filter, page = 1, limit = 20, search } = req.query;
+    const { filter, page = 1, limit = 100, search } = req.query;
     console.log("Received request with page:", page, "and limit:", limit);
     const q = { all: {}, pending: { status: "pending" } };
     const pageNum = parseInt(page, 10);
