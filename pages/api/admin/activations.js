@@ -103,7 +103,7 @@ export default async (req, res) => {
     }
     
     // Para páginas muy altas, sugerir usar búsqueda
-    if (pageNum > 500) { // Con 100 por página, 500 páginas = 50,000 registros
+    if (pageNum > 50) { // Con 100 por página, 50 páginas = 5,000 registros
       return res.json(lib.error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
     }
     
@@ -116,10 +116,20 @@ export default async (req, res) => {
       limitNum
     );
 
-    try {
-      const client = new MongoClient(URL);
-      await client.connect();
-      const db = client.db(name);
+          try {
+        const client = new MongoClient(URL);
+        await client.connect();
+        const db = client.db(name);
+        
+        // Crear índice compuesto para mejorar el rendimiento del ordenamiento
+        try {
+          await db.collection("activations").createIndex(
+            { status: 1, date: -1 },
+            { background: true }
+          );
+        } catch (indexError) {
+          console.log("Index might already exist:", indexError.message);
+        }
 
       // Buscar usuarios que coincidan con el query de búsqueda
       let userIds = [];
@@ -127,6 +137,7 @@ export default async (req, res) => {
         const users = await db
           .collection("users")
           .find(userSearchQuery)
+          .project({ id: 1 }) // Solo obtener el ID para reducir memoria
           .toArray();
         userIds = users.map((user) => user.id); // Obtener los IDs de los usuarios que coinciden
       }
@@ -137,19 +148,41 @@ export default async (req, res) => {
         ...(userIds.length > 0 && { userId: { $in: userIds } }) // Filtro de usuarios si hay búsqueda
       };
 
-      // Filtrar activaciones según el userIds encontrados
-      const activationsCursor = db
-        .collection("activations")
-        .find(finalQuery) // Usar la consulta final
-        .sort({ date: -1 })
-        .skip(skip)
-        .limit(limitNum);
-
-      const activations = await activationsCursor.toArray();
-
+      // Optimizar la consulta para reducir uso de memoria
+      // Primero contar el total sin ordenar
       const totalActivations = await db
         .collection("activations")
-        .countDocuments(finalQuery); // Usar la misma consulta para el conteo
+        .countDocuments(finalQuery);
+
+      // Luego obtener solo los campos necesarios para la paginación
+      const activationsCursor = db
+        .collection("activations")
+        .find(finalQuery, {
+          projection: {
+            id: 1,
+            date: 1,
+            userId: 1,
+            products: 1,
+            price: 1,
+            points: 1,
+            voucher: 1,
+            status: 1,
+            amounts: 1,
+            office: 1,
+            delivered: 1,
+            closed: 1,
+            pay_method: 1,
+            bank: 1,
+            voucher_date: 1,
+            voucher_number: 1
+          }
+        })
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .allowDiskUse(true); // Permitir uso de disco para ordenamiento
+
+      const activations = await activationsCursor.toArray();
 
       console.log("Type of page:", typeof page, "Value:", page);
       console.log("Type of limit:", typeof limit, "Value:", limit);
@@ -205,7 +238,17 @@ export default async (req, res) => {
         limit: limitNum,
         skip: skip
       });
-      return res.status(500).json(lib.error("Database connection error: " + error.message));
+      
+      // Manejar errores específicos de MongoDB
+      if (error.message.includes("Sort exceeded memory limit")) {
+        return res.status(500).json(lib.error("La consulta es demasiado grande. Use la búsqueda para encontrar resultados específicos."));
+      }
+      
+      if (error.message.includes("allowDiskUse")) {
+        return res.status(500).json(lib.error("Error de ordenamiento. Intente con una búsqueda más específica."));
+      }
+      
+      return res.status(500).json(lib.error("Error de base de datos: " + error.message));
     }
   }
 
