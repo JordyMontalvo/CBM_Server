@@ -18,7 +18,7 @@ const handler = async (req, res) => {
 
 
   // get transactions
-  const transactions = await Transaction.find({ userId: user.id })
+  const transactions = await Transaction.find({ userId: user.id }) || []
 
   const ins  = acum(transactions, {type: 'in'}, 'value')
   const outs = acum(transactions, {type: 'out'}, 'value')

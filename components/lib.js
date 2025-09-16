@@ -22,6 +22,10 @@ class Lib {
   }
 
   acum(a, query, field) {
+    // Validar que 'a' sea un array válido
+    if (!Array.isArray(a)) {
+      return 0
+    }
 
     const x = Object.keys(query)[0]
     const y = Object.values(query)[0]

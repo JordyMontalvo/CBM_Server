@@ -85,8 +85,8 @@ export default async (req, res) => {
 
 
   // get transactions
-  const  transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
-  const _transactions = await Transaction.find({ user_id: user.id, virtual:              true    })
+  const  transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} }) || []
+  const _transactions = await Transaction.find({ user_id: user.id, virtual:              true    }) || []
 
   const  ins  = acum( transactions, {type: 'in' }, 'value')
   const  outs = acum( transactions, {type: 'out'}, 'value')
