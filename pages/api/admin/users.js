@@ -66,55 +66,109 @@ const handler = async (req, res) => {
       await client.connect();
       const db = client.db(name);
 
-      // Total de usuarios
+      // Total de usuarios (optimizado)
       const totalUsers = await db
         .collection("users")
         .countDocuments(userSearchQuery);
 
-      // --- INICIO: Calcular totales globales ---
-      // Obtener todos los usuarios que cumplen el filtro (sin paginación)
-      const allUsers = await db
-        .collection("users")
-        .find(userSearchQuery)
-        .toArray();
-      const allUserIds = allUsers.map((u) => u.id);
-      // Obtener todas las transacciones de esos usuarios
-      const allTransactions = await db
-        .collection("transactions")
-        .find({ user_id: { $in: allUserIds }, virtual: { $in: [null, false] } })
-        .toArray();
-      const allVirtualTransactions = await db
-        .collection("transactions")
-        .find({ user_id: { $in: allUserIds }, virtual: true })
-        .toArray();
-      // Calcular balances globales
-      const globalBalances = allUsers.map((user) => {
-        const ins = allTransactions
-          .filter((i) => i.user_id == user.id && i.type == "in")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const outs = allTransactions
-          .filter((i) => i.user_id == user.id && i.type == "out")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const virtualIns = allVirtualTransactions
-          .filter((i) => i.user_id == user.id && i.type == "in")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const virtualOuts = allVirtualTransactions
-          .filter((i) => i.user_id == user.id && i.type == "out")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        return {
-          balance: ins - outs,
-          virtualbalance: virtualIns - virtualOuts,
-        };
-      });
-      const totalBalance = globalBalances.reduce(
-        (sum, u) => sum + (u.balance || 0),
-        0
-      );
-      const totalVirtualBalance = globalBalances.reduce(
-        (sum, u) => sum + (u.virtualbalance || 0),
-        0
-      );
-      // --- FIN: Calcular totales globales ---
+      // Calcular totales globales de forma optimizada usando agregación
+      const globalStats = await db.collection("users").aggregate([
+        { $match: userSearchQuery },
+        {
+          $lookup: {
+            from: "transactions",
+            let: { userId: "$id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$user_id", "$$userId"] },
+                  virtual: { $in: [null, false] }
+                }
+              }
+            ],
+            as: "transactions"
+          }
+        },
+        {
+          $lookup: {
+            from: "transactions",
+            let: { userId: "$id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ["$user_id", "$$userId"] },
+                  virtual: true
+                }
+              }
+            ],
+            as: "virtualTransactions"
+          }
+        },
+        {
+          $addFields: {
+            balance: {
+              $let: {
+                vars: {
+                  ins: {
+                    $sum: {
+                      $map: {
+                        input: { $filter: { input: "$transactions", cond: { $eq: ["$$this.type", "in"] } } },
+                        as: "t",
+                        in: { $toDouble: "$$t.value" }
+                      }
+                    }
+                  },
+                  outs: {
+                    $sum: {
+                      $map: {
+                        input: { $filter: { input: "$transactions", cond: { $eq: ["$$this.type", "out"] } } },
+                        as: "t",
+                        in: { $toDouble: "$$t.value" }
+                      }
+                    }
+                  }
+                },
+                in: { $subtract: ["$$ins", "$$outs"] }
+              }
+            },
+            virtualBalance: {
+              $let: {
+                vars: {
+                  ins: {
+                    $sum: {
+                      $map: {
+                        input: { $filter: { input: "$virtualTransactions", cond: { $eq: ["$$this.type", "in"] } } },
+                        as: "t",
+                        in: { $toDouble: "$$t.value" }
+                      }
+                    }
+                  },
+                  outs: {
+                    $sum: {
+                      $map: {
+                        input: { $filter: { input: "$virtualTransactions", cond: { $eq: ["$$this.type", "out"] } } },
+                        as: "t",
+                        in: { $toDouble: "$$t.value" }
+                      }
+                    }
+                  }
+                },
+                in: { $subtract: ["$$ins", "$$outs"] }
+              }
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalBalance: { $sum: "$balance" },
+            totalVirtualBalance: { $sum: "$virtualBalance" }
+          }
+        }
+      ]).toArray();
+
+      const totalBalance = globalStats.length > 0 ? globalStats[0].totalBalance : 0;
+      const totalVirtualBalance = globalStats.length > 0 ? globalStats[0].totalVirtualBalance : 0;
 
       // Usuarios paginados y ordenados
       let users = await db
@@ -314,7 +368,23 @@ export default async (req, res) => {
     return;
   }
 
+  // Timeout de 25 segundos (menos que el límite de Heroku de 30s)
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json(error('Request timeout'));
+    }
+  }, 25000);
 
-  await midd(req, res);
-  return handler(req, res);
+  try {
+    await midd(req, res);
+    const result = await handler(req, res);
+    clearTimeout(timeout);
+    return result;
+  } catch (err) {
+    clearTimeout(timeout);
+    console.error('Admin users error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json(error('Internal server error'));
+    }
+  }
 };
