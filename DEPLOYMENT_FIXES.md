@@ -1,12 +1,16 @@
 # Correcciones para el Despliegue en Heroku
 
-## Problema Resuelto
-Error de compilación en Heroku: `Module not found: Can't resolve '../../components/lib'`
+## Problemas Resueltos
 
-## Causa del Error
-El archivo `pages/api/auxi/imagekit.js` tenía una ruta de importación incorrecta:
-- **Incorrecto**: `import lib from "../../components/lib"`
-- **Correcto**: `import lib from "../../../components/lib"`
+### 1. Error de Compilación
+- **Error**: `Module not found: Can't resolve '../../components/lib'`
+- **Causa**: Ruta de importación incorrecta en `pages/api/auxi/imagekit.js`
+- **Solución**: Corregida la ruta de `../../components/lib` a `../../../components/lib`
+
+### 2. Error de Middleware CORS
+- **Error**: `TypeError: t.setHeader is not a function`
+- **Causa**: Middleware personalizado incompatible con Next.js 14
+- **Solución**: Implementación manual de CORS sin dependencias externas
 
 ## Cambios Realizados
 

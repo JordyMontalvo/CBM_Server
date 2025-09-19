@@ -1,22 +1,6 @@
-import Cors from 'cors'
-
 class Lib {
 
   constructor() {
-    this.cors = Cors({ 
-      origin: [
-        'https://www.cbmundial.com',
-        'https://cbmundial.com',
-        'https://cbm-admin.vercel.app',
-        'http://localhost:8080',
-        'http://localhost:8081',
-        'http://localhost:3000'
-      ],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      credentials: true
-    })
-
     this.midd = this.midd.bind(this)
   }
 
@@ -25,12 +9,37 @@ class Lib {
   success(opts) { return { error: false, ...opts }}
 
   midd(req, res) {
-    return new Promise((resolve, reject) => {
-      this.cors(req, res, (result) => {
-        if (result instanceof Error) return reject(result)
-        return resolve(result)
-      })
-    })
+    // Configurar headers CORS manualmente
+    const allowedOrigins = [
+      'https://www.cbmundial.com',
+      'https://cbmundial.com',
+      'https://cbm-admin.vercel.app',
+      'http://localhost:8080',
+      'http://localhost:8081',
+      'http://localhost:3000'
+    ];
+
+    const origin = req.headers.origin;
+    
+    if (allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+      // Permitir requests sin origin
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    // Manejar preflight requests
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return Promise.resolve();
+    }
+
+    return Promise.resolve();
   }
 
   acum(a, query, field) {

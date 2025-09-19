@@ -8,7 +8,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: 'https://www.cbmundial.com, https://cbmundial.com, https://cbm-admin.vercel.app, http://localhost:8080, http://localhost:8081, http://localhost:3000',
+            value: '*',
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -26,12 +26,6 @@ const nextConfig = {
       },
     ]
   },
-  // Configuración adicional para producción
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
-  // Asegurar que las rutas de API funcionen correctamente
-  trailingSlash: false,
   // Configuración para Heroku
   output: 'standalone',
 }
