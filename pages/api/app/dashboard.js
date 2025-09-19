@@ -66,12 +66,21 @@ function calc_range(arr, p) {
 }
 
 function rank(node) {
+  if (!node) return;
+  if (!node.rank) node.rank = 'none';
+  if (!node.activated) node.activated = false;
+  if (!node.total) node.total = [];
+  if (!node.points) node.points = 0;
+  
   if(node.activated) node.rank = calc_range(node.total, node.points)
   else node.rank = 'none'
 }
 
 function find_rank(id, name) {
   const node = tree.find(e => e.id == id)
+  if (!node) return false;
+  if (!node.rank) node.rank = 'none';
+  if (!node.childs) node.childs = [];
 
   const i = pos[node.rank]
   const j = pos[name]
@@ -86,6 +95,10 @@ function find_rank(id, name) {
 }
 
 function is_rank(node, rank) {
+  if (!node) return false;
+  if (!node.rank) node.rank = 'none';
+  if (!node.childs) node.childs = [];
+  if (!node.total) node.total = [];
 
   let total = 0, M, M1, M2
 
@@ -122,6 +135,10 @@ function is_rank(node, rank) {
 }
 
 function next_rank(node) {
+  if (!node) return;
+  if (!node.rank) node.rank = 'none';
+  if (!node.total) node.total = [];
+  if (!node.childs) node.childs = [];
 
   let total = 0
 
