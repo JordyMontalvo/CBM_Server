@@ -141,11 +141,11 @@ function next_rank(node) {
 
   const arr = node.total
 
-  if (rank == 'RUBI')              { M  =  21000; M1 =  5500; M2 =  5250 }
-  if (rank == 'DIAMANTE')          { M  =  60000; M1 = 13000; M2 = 12000 }
-  if (rank == 'DOBLE DIAMANTE')    { M  = 115000; M1 = 23000; M2 = 23000 }
-  if (rank == 'TRIPLE DIAMANTE')   { M  = 225000; M1 = 37500; M2 = 37500 }
-  if (rank == 'DIAMANTE ESTRELLA') { M  = 520000; M1 = 87000; M2 = 86700 }
+  if (node.rank == 'RUBI')              { M  =  21000; M1 =  5500; M2 =  5250 }
+  if (node.rank == 'DIAMANTE')          { M  =  60000; M1 = 13000; M2 = 12000 }
+  if (node.rank == 'DOBLE DIAMANTE')    { M  = 115000; M1 = 23000; M2 = 23000 }
+  if (node.rank == 'TRIPLE DIAMANTE')   { M  = 225000; M1 = 37500; M2 = 37500 }
+  if (node.rank == 'DIAMANTE ESTRELLA') { M  = 520000; M1 = 87000; M2 = 86700 }
 
   for(const [i, a] of arr.entries()) {
     if(i == 0) total += arr[i] > M1 ? M1 : arr[i]
@@ -269,6 +269,11 @@ export default async (req, res) => {
   })
 
   node.total.sort((a, b) => b - a)
+
+  // Asegurar que el nodo tenga propiedades requeridas
+  if (!node.rank) node.rank = 'none';
+  if (!node.points) node.points = 0;
+  if (!node.activated) node.activated = false;
 
   rank(node)
 
