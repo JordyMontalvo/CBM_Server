@@ -190,7 +190,15 @@ export default async (req, res) => {
     return;
   }
 
-  await midd(req, res)
+  // Timeout de 25 segundos (menos que el límite de Heroku de 30s)
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(504).json(error('Request timeout'));
+    }
+  }, 25000);
+
+  try {
+    await midd(req, res)
 
   let { session } = req.query
 
@@ -211,18 +219,28 @@ export default async (req, res) => {
   const outsVirtual = acum(virtualTransactions, {type: 'out'}, 'value')
 
 
-  const users = await User.find({ tree: true })
-        tree  = await Tree.find({})
+  // Optimización: Solo obtener usuarios necesarios para el árbol del usuario actual
+  const userTree = await Tree.findOne({ id: user.id })
+  if (!userTree) {
+    return res.json(error('User tree not found'))
+  }
+
+  // Obtener solo los IDs necesarios para el árbol del usuario
+  const allTreeIds = [user.id, ...userTree.childs]
+  const users = await User.find({ id: { $in: allTreeIds } })
+  const tree = await Tree.find({ id: { $in: allTreeIds } })
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
-    node.name               = user.name + ' ' + user.lastName
-    node.points             = Number(user.points)
-    node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
-    node.affiliated         = user.affiliated
-    node.activated          = user.activated
-    node.parentId           = user.parentId
-    node.closed             = user.closed ? true : false
+    if (user) {
+      node.name               = user.name + ' ' + user.lastName
+      node.points             = Number(user.points)
+      node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
+      node.affiliated         = user.affiliated
+      node.activated          = user.activated
+      node.parentId           = user.parentId
+      node.closed             = user.closed ? true : false
+    }
   })
 
   total_points(user.id)
@@ -262,29 +280,37 @@ export default async (req, res) => {
 
   const banner = await Banner.findOne({})
 
-  // response
-  return res.json(success({
-    name:       user.name,
-    lastName:   user.lastName,
-    affiliated: user.affiliated,
-    _activated: user._activated,
-    activated:  user.activated,
-    plan:       user.plan,
-    country:    user.country,
-    photo:      user.photo,
-    tree:       user.tree,
+    // response
+    clearTimeout(timeout);
+    return res.json(success({
+      name:       user.name,
+      lastName:   user.lastName,
+      affiliated: user.affiliated,
+      _activated: user._activated,
+      activated:  user.activated,
+      plan:       user.plan,
+      country:    user.country,
+      photo:      user.photo,
+      tree:       user.tree,
 
-    banner,
-    ins,
-    insVirtual,
-    outs,
-    balance: (ins - outs),
-   _balance: (insVirtual - outsVirtual),
-    rank:    user.rank,
-    points:  user.points,
-    node,
-    n_affiliates,
-  }))
+      banner,
+      ins,
+      insVirtual,
+      outs,
+      balance: (ins - outs),
+     _balance: (insVirtual - outsVirtual),
+      rank:    user.rank,
+      points:  user.points,
+      node,
+      n_affiliates,
+    }))
+  } catch (err) {
+    clearTimeout(timeout);
+    console.error('Dashboard error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json(error('Internal server error'));
+    }
+  }
 }
 
 
