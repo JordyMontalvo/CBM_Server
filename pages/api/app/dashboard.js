@@ -208,6 +208,15 @@ export default async (req, res) => {
 
   // get USER
   const user = await User.findOne({ id: session.id })
+  if (!user) {
+    clearTimeout(timeout);
+    return res.json(error('User not found'));
+  }
+
+  // Asegurar que el usuario tenga propiedades requeridas
+  if (!user.rank) user.rank = 'none';
+  if (!user.points) user.points = 0;
+  if (!user.affiliation_points) user.affiliation_points = 0;
 
   // get transactions
   const transactions        = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} }) || []
@@ -287,26 +296,26 @@ export default async (req, res) => {
     // response
     clearTimeout(timeout);
     return res.json(success({
-      name:       user.name,
-      lastName:   user.lastName,
-      affiliated: user.affiliated,
-      _activated: user._activated,
-      activated:  user.activated,
-      plan:       user.plan,
-      country:    user.country,
-      photo:      user.photo,
-      tree:       user.tree,
+      name:       user.name || '',
+      lastName:   user.lastName || '',
+      affiliated: user.affiliated || false,
+      _activated: user._activated || false,
+      activated:  user.activated || false,
+      plan:       user.plan || 'default',
+      country:    user.country || '',
+      photo:      user.photo || '',
+      tree:       user.tree || false,
 
-      banner,
-      ins,
-      insVirtual,
-      outs,
-      balance: (ins - outs),
-     _balance: (insVirtual - outsVirtual),
-      rank:    user.rank,
-      points:  user.points,
-      node,
-      n_affiliates,
+      banner: banner || null,
+      ins: ins || 0,
+      insVirtual: insVirtual || 0,
+      outs: outs || 0,
+      balance: (ins - outs) || 0,
+     _balance: (insVirtual - outsVirtual) || 0,
+      rank:    user.rank || 'none',
+      points:  user.points || 0,
+      node: node || null,
+      n_affiliates: n_affiliates || 0,
     }))
   } catch (err) {
     clearTimeout(timeout);
