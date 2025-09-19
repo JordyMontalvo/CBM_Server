@@ -11,12 +11,14 @@ let pay_standard = 0
 let pay_business = 0
 let pay_master   = 0
 
+
 function total_pay(id, parent_id) {
   const node = tree.find(e => e.id == id)
 
   let val = 0
 
   if(node.parentId == parent_id && !node.closeds) {
+
     if(node.plan == 'basic')    val = 50
     if(node.plan == 'standard') val = 150
     if(node.plan == 'business') val = 300
@@ -33,6 +35,7 @@ function total_pay(id, parent_id) {
   })
 }
 
+
 export default async (req, res) => {
   // CORS headers directos
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -46,12 +49,13 @@ export default async (req, res) => {
     return;
   }
 
+
   await midd(req, res)
 
   // valid session
   let { session } = req.query
-  session = await Session.findOne({ value: session })
-  if (!session) return res.json(error('invalid session'))
+        session   = await Session.findOne({ value: session })
+  if  (!session)    return res.json(error('invalid session'))
 
   // get USER
   const user = await User.findOne({ id: session.id })
@@ -62,9 +66,11 @@ export default async (req, res) => {
   // get PRODUCTS
   const products = await Product.find({ aff_price: {$exists: true }})
 
+
   // get last AFFILIATION pending or approved
   const affiliation  = await Affiliation.findOneLast({ userId: user.id, status: { $in: ['pending', 'approved'] } })
   const affiliations = await Affiliation.find({ userId: user.id, status: 'approved' })
+
 
   if(affiliation && affiliation.status == 'approved') {
     if(affiliation.plan.id == 'pre-basic') {
@@ -90,11 +96,10 @@ export default async (req, res) => {
     }
   }
 
-  // get transactions - optimizado con una sola consulta
-  const [transactions, _transactions] = await Promise.all([
-    Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} }),
-    Transaction.find({ user_id: user.id, virtual: true })
-  ])
+
+  // get transactions
+  const  transactions = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} }) || []
+  const _transactions = await Transaction.find({ user_id: user.id, virtual:              true    }) || []
 
   const  ins  = acum( transactions, {type: 'in' }, 'value')
   const  outs = acum( transactions, {type: 'out'}, 'value')
@@ -104,23 +109,20 @@ export default async (req, res) => {
   const  balance =  ins -  outs
   const _balance = _ins - _outs
 
-  if(user.plan == 'default') {
-    // Optimización: Solo cargar datos necesarios para el cálculo
-    const [users, treeData] = await Promise.all([
-      User.find({ tree: true }),
-      Tree.find({})
-    ])
 
-    tree = treeData
+  if(user.plan == 'default') {
+
+    const users = await User.find({ tree: true })
+          tree  = await Tree.find({})
 
     tree.forEach(node => {
-      const userData = users.find(e => e.id == node.id)
-      if (userData) {
-        node.plan               = userData.plan
-        node.affiliation_points = userData.affiliation_points
-        node.parentId           = userData.parentId
-        node.closeds            = userData.closeds ? true : false
-      }
+
+      const user = users.find(e => e.id == node.id)
+
+      node.plan               = user.plan
+      node.affiliation_points = user.affiliation_points
+      node.parentId           = user.parentId
+      node.closeds            = user.closeds ? true : false
     })
 
     pay_basic    = 0
@@ -128,21 +130,24 @@ export default async (req, res) => {
     pay_business = 0
     pay_master   = 0
 
+
     const node = tree.find(e => e.id == user.id)
-    if (node) {
-      node.childs.forEach(_id => {
-        total_pay(_id, node.id)
-      })
-    }
+
+    node.childs.forEach(_id => {
+      total_pay(_id, node.id)
+    })
 
     plans[0].pay = 0
     plans[1].pay = pay_basic
     plans[2].pay = pay_standard
     plans[3].pay = pay_business
     plans[4].pay = pay_master
+
   }
 
+
   if(req.method == 'GET') {
+
     const offices = await Office.find({})
 
     return res.json(success({
@@ -167,12 +172,15 @@ export default async (req, res) => {
     }))
   }
 
+
   if(req.method == 'POST') {
+
     let { products, price, final_plan, voucher, office, check, remaining, pay_method, bank, date, voucher_number } = req.body
 
-    const plan = plans.find(e => e.id == final_plan)
+    const plan = plans.find(e => e.id == final_plan); console.log({ plan })
 
     if(user.plan == 'default') {
+
       let transactions = []
       let amounts
 
@@ -183,11 +191,13 @@ export default async (req, res) => {
         const r = (price - balance) > 0 ? price - balance : 0
         const b = pay < r ? pay : r
         const c = price - a - b
+        console.log({ a, b, c })
+        const id1 = rand()
+        // const id2 = rand()
 
         amounts = [a, b, c]
 
         if(a) {
-          const id1 = rand()
           transactions.push(id1)
 
           await Transaction.insert({
@@ -224,19 +234,23 @@ export default async (req, res) => {
       })
 
     } else {
+
       let transactions = []
       let amounts
 
       if(!check) {
+
         const a = _balance < price ? _balance : price
         const r = (price - _balance) > 0 ? price - _balance : 0
         const b = balance < r ? balance : r
         const c = price - a - b
+        console.log({ a, b, c })
+        const id1 = rand()
+        const id2 = rand()
 
         amounts = [a, b, c]
 
         if(a) {
-          const id1 = rand()
           transactions.push(id1)
 
           await Transaction.insert({
@@ -251,7 +265,6 @@ export default async (req, res) => {
         }
 
         if(b) {
-          const id2 = rand()
           transactions.push(id2)
 
           await Transaction.insert({
