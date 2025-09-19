@@ -228,7 +228,7 @@ export default async (req, res) => {
   // Obtener solo los IDs necesarios para el árbol del usuario
   const allTreeIds = [user.id, ...userTree.childs]
   const users = await User.find({ id: { $in: allTreeIds } })
-  const tree = await Tree.find({ id: { $in: allTreeIds } })
+  tree = await Tree.find({ id: { $in: allTreeIds } })
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
@@ -246,6 +246,10 @@ export default async (req, res) => {
   total_points(user.id)
 
   const node = tree.find(e => e.id == user.id)
+  if (!node) {
+    clearTimeout(timeout);
+    return res.status(500).json(error('User node not found in tree'));
+  }
 
   node.total = []
 
