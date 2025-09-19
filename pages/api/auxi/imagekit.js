@@ -1,5 +1,7 @@
-const cors = require('micro-cors')()
+import lib from "../../components/lib"
 const ImageKit = require("imagekit")
+
+const { midd } = lib
 
 const publicKey = process.env.IMAGEKIT_PUBLIC
 const privateKey = process.env.IMAGEKIT_PRIVATE
@@ -12,9 +14,10 @@ var imagekit = new ImageKit({
   urlEndpoint: "https://ik.imagekit.io/ei5p3fotk/",
 })
 
-export default cors((req, res) => {
+export default async (req, res) => {
+  await midd(req, res)
   return res.json(imagekit.getAuthenticationParameters())
-})
+}
 
 
 // const authenticationParameters = imagekit.getAuthenticationParameters()

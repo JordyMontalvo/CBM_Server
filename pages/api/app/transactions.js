@@ -1,10 +1,8 @@
-const cors = require('micro-cors')()
-
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
 
 const { User, Session, Transaction } = db
-const { error, success } = lib
+const { error, success, midd } = lib
 // const { error, success, model } = lib
 
 // models
@@ -12,6 +10,7 @@ const { error, success } = lib
 
 
 const transactions = async (req, res) => {
+  await midd(req, res)
 
   let { session } = req.query
 
@@ -60,4 +59,4 @@ const transactions = async (req, res) => {
   }))
 }
 
-export default cors(transactions)
+export default transactions

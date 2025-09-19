@@ -1,0 +1,30 @@
+{
+  "name": "CBM Server",
+  "description": "Servidor API para CBM Mundial",
+  "repository": "https://github.com/tu-usuario/cbm-server",
+  "logo": "https://node-js-sample.herokuapp.com/node.png",
+  "keywords": ["node", "express", "next", "api", "cors"],
+  "image": "heroku/nodejs",
+  "stack": "heroku-20",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Entorno de ejecución",
+      "value": "production"
+    },
+    "PORT": {
+      "description": "Puerto del servidor",
+      "value": "3000"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  }
+}

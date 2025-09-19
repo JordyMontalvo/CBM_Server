@@ -3,7 +3,19 @@ import Cors from 'cors'
 class Lib {
 
   constructor() {
-    this.cors = Cors({ methods: ['GET', 'POST'] })
+    this.cors = Cors({ 
+      origin: [
+        'https://www.cbmundial.com',
+        'https://cbmundial.com',
+        'https://cbm-admin.vercel.app',
+        'http://localhost:8080',
+        'http://localhost:8081',
+        'http://localhost:3000'
+      ],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      credentials: true
+    })
 
     this.midd = this.midd.bind(this)
   }

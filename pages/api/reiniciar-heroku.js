@@ -1,10 +1,24 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-  // Habilitar CORS para desarrollo local
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8081');
+  // Habilitar CORS para desarrollo local y producción
+  const allowedOrigins = [
+    'https://www.cbmundial.com',
+    'https://cbmundial.com',
+    'https://cbm-admin.vercel.app',
+    'http://localhost:8081',
+    'http://localhost:8080',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   // Manejar preflight (OPTIONS)
   if (req.method === 'OPTIONS') {
