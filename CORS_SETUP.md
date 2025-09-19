@@ -8,8 +8,9 @@ Se ha solucionado el error de CORS que impedía que `https://www.cbmundial.com` 
 ### 1. Configuración Centralizada de CORS
 - **Archivo**: `components/lib.js`
 - **Cambio**: Actualizada la configuración de CORS para incluir los dominios permitidos:
-  - `https://www.cbmundial.com`
-  - `https://cbmundial.com`
+  - `https://www.cbmundial.com` (aplicación principal)
+  - `https://cbmundial.com` (dominio alternativo)
+  - `https://cbm-admin.vercel.app` (panel de administración)
   - `http://localhost:8080` (desarrollo)
   - `http://localhost:8081` (desarrollo)
   - `http://localhost:3000` (desarrollo)

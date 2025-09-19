@@ -1,4 +1,4 @@
-import lib from "../../components/lib"
+import lib from "../../../components/lib"
 const ImageKit = require("imagekit")
 
 const { midd } = lib
