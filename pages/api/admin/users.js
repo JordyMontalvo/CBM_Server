@@ -66,109 +66,14 @@ const handler = async (req, res) => {
       await client.connect();
       const db = client.db(name);
 
-      // Total de usuarios (optimizado)
+      // Total de usuarios (solo count, sin cálculos pesados)
       const totalUsers = await db
         .collection("users")
         .countDocuments(userSearchQuery);
 
-      // Calcular totales globales de forma optimizada usando agregación
-      const globalStats = await db.collection("users").aggregate([
-        { $match: userSearchQuery },
-        {
-          $lookup: {
-            from: "transactions",
-            let: { userId: "$id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$user_id", "$$userId"] },
-                  virtual: { $in: [null, false] }
-                }
-              }
-            ],
-            as: "transactions"
-          }
-        },
-        {
-          $lookup: {
-            from: "transactions",
-            let: { userId: "$id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ["$user_id", "$$userId"] },
-                  virtual: true
-                }
-              }
-            ],
-            as: "virtualTransactions"
-          }
-        },
-        {
-          $addFields: {
-            balance: {
-              $let: {
-                vars: {
-                  ins: {
-                    $sum: {
-                      $map: {
-                        input: { $filter: { input: "$transactions", cond: { $eq: ["$$this.type", "in"] } } },
-                        as: "t",
-                        in: { $toDouble: "$$t.value" }
-                      }
-                    }
-                  },
-                  outs: {
-                    $sum: {
-                      $map: {
-                        input: { $filter: { input: "$transactions", cond: { $eq: ["$$this.type", "out"] } } },
-                        as: "t",
-                        in: { $toDouble: "$$t.value" }
-                      }
-                    }
-                  }
-                },
-                in: { $subtract: ["$$ins", "$$outs"] }
-              }
-            },
-            virtualBalance: {
-              $let: {
-                vars: {
-                  ins: {
-                    $sum: {
-                      $map: {
-                        input: { $filter: { input: "$virtualTransactions", cond: { $eq: ["$$this.type", "in"] } } },
-                        as: "t",
-                        in: { $toDouble: "$$t.value" }
-                      }
-                    }
-                  },
-                  outs: {
-                    $sum: {
-                      $map: {
-                        input: { $filter: { input: "$virtualTransactions", cond: { $eq: ["$$this.type", "out"] } } },
-                        as: "t",
-                        in: { $toDouble: "$$t.value" }
-                      }
-                    }
-                  }
-                },
-                in: { $subtract: ["$$ins", "$$outs"] }
-              }
-            }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalBalance: { $sum: "$balance" },
-            totalVirtualBalance: { $sum: "$virtualBalance" }
-          }
-        }
-      ]).toArray();
-
-      const totalBalance = globalStats.length > 0 ? globalStats[0].totalBalance : 0;
-      const totalVirtualBalance = globalStats.length > 0 ? globalStats[0].totalVirtualBalance : 0;
+      // Totales globales simplificados (sin cálculos pesados)
+      const totalBalance = 0; // Deshabilitado temporalmente por performance
+      const totalVirtualBalance = 0; // Deshabilitado temporalmente por performance
 
       // Usuarios paginados y ordenados
       let users = await db
@@ -216,35 +121,63 @@ const handler = async (req, res) => {
         return user;
       });
 
-      // Obtener transacciones solo de estos usuarios
+      // Calcular balances usando agregación optimizada solo para usuarios paginados
       const userIds = users.map((u) => u.id);
-      const transactions = await db
-        .collection("transactions")
-        .find({ user_id: { $in: userIds }, virtual: { $in: [null, false] } })
-        .toArray();
-      const virtualTransactions = await db
-        .collection("transactions")
-        .find({ user_id: { $in: userIds }, virtual: true })
-        .toArray();
+      
+      if (userIds.length > 0) {
+        const userBalances = await db.collection("transactions").aggregate([
+          { $match: { user_id: { $in: userIds }, virtual: { $in: [null, false] } } },
+          {
+            $group: {
+              _id: "$user_id",
+              balance: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$type", "in"] },
+                    { $toDouble: "$value" },
+                    { $multiply: [{ $toDouble: "$value" }, -1] }
+                  ]
+                }
+              }
+            }
+          }
+        ]).toArray();
 
-      // Calcular balances solo para los usuarios paginados
-      users = users.map((user) => {
-        const ins = transactions
-          .filter((i) => i.user_id == user.id && i.type == "in")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const outs = transactions
-          .filter((i) => i.user_id == user.id && i.type == "out")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        user.balance = ins - outs;
-        const virtualIns = virtualTransactions
-          .filter((i) => i.user_id == user.id && i.type == "in")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        const virtualOuts = virtualTransactions
-          .filter((i) => i.user_id == user.id && i.type == "out")
-          .reduce((a, b) => a + parseFloat(b.value), 0);
-        user.virtualbalance = virtualIns - virtualOuts;
-        return user;
-      });
+        const userVirtualBalances = await db.collection("transactions").aggregate([
+          { $match: { user_id: { $in: userIds }, virtual: true } },
+          {
+            $group: {
+              _id: "$user_id",
+              virtualBalance: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$type", "in"] },
+                    { $toDouble: "$value" },
+                    { $multiply: [{ $toDouble: "$value" }, -1] }
+                  ]
+                }
+              }
+            }
+          }
+        ]).toArray();
+
+        // Mapear balances a usuarios
+        users = users.map((user) => {
+          const balance = userBalances.find(b => b._id === user.id);
+          const virtualBalance = userVirtualBalances.find(b => b._id === user.id);
+          
+          user.balance = balance ? balance.balance : 0;
+          user.virtualbalance = virtualBalance ? virtualBalance.virtualBalance : 0;
+          return user;
+        });
+      } else {
+        // Si no hay usuarios, asignar valores por defecto
+        users = users.map((user) => {
+          user.balance = 0;
+          user.virtualbalance = 0;
+          return user;
+        });
+      }
 
       // parse user
       users = users.map((user) => {
