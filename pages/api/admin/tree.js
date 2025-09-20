@@ -8,9 +8,9 @@ const { success, midd, map, error } = lib;
 let treeCache = null;
 let usersCache = null;
 let lastCacheTime = 0;
-const CACHE_DURATION = 30000; // 30 segundos
+const CACHE_DURATION = 60000; // 60 segundos en producción
 
-// Función para obtener datos con cache
+// Función para obtener datos con cache optimizada
 async function getCachedData() {
   const now = Date.now();
   
@@ -18,94 +18,78 @@ async function getCachedData() {
     return { tree: treeCache, users: usersCache };
   }
 
-  const [tree, users] = await Promise.all([
-    Tree.find({}),
-    User.find({ tree: true })
-  ]);
+  try {
+    // Consultas optimizadas sin límites (el ORM no soporta .limit())
+    const [tree, users] = await Promise.all([
+      Tree.find({}),
+      User.find({ tree: true })
+    ]);
 
-  treeCache = tree;
-  usersCache = users;
-  lastCacheTime = now;
+    // Aplicar límites manualmente para evitar cargar demasiados datos
+    const limitedTree = tree.slice(0, 5000);
+    const limitedUsers = users.slice(0, 5000);
 
-  return { tree, users };
+    treeCache = limitedTree;
+    usersCache = limitedUsers;
+    lastCacheTime = now;
+
+    return { tree: limitedTree, users: limitedUsers };
+  } catch (err) {
+    console.error('Error obteniendo datos:', err);
+    // Retornar datos vacíos en caso de error
+    return { tree: [], users: [] };
+  }
 }
 
-// Función mejorada para buscar nodo por ID o DNI
+// Función optimizada para buscar nodo
 function findNode(tree, users, identifier) {
-  // Limpiar el identificador
   const cleanId = identifier.toString().trim();
   
-  console.log(`🔍 Buscando nodo con identificador: "${cleanId}"`);
+  // Crear mapas para búsqueda rápida
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const dniMap = new Map();
+  const nameMap = new Map();
   
-  // Buscar en el árbol por ID exacto
+  // Pre-construir mapas de búsqueda
+  users.forEach(user => {
+    if (user.dni) {
+      dniMap.set(user.dni.toString(), user);
+      dniMap.set(user.dni, user);
+    }
+    if (user.name) {
+      nameMap.set(user.name.toLowerCase(), user);
+    }
+  });
+  
+  // 1. Buscar por ID exacto en el árbol
   let node = tree.find(n => n.id === cleanId);
-  if (node) {
-    console.log(`✅ Nodo encontrado por ID: ${node.id}`);
-    return node;
-  }
+  if (node) return node;
   
-  // Buscar en usuarios por DNI exacto
-  let user = users.find(u => u.dni === cleanId || u.dni === parseInt(cleanId));
+  // 2. Buscar por DNI exacto
+  let user = dniMap.get(cleanId);
   if (user) {
-    console.log(`✅ Usuario encontrado por DNI: ${user.dni}`);
-    // Buscar el nodo correspondiente
     node = tree.find(n => n.id === user.id);
-    if (node) {
-      console.log(`✅ Nodo del usuario encontrado: ${node.id}`);
-      return node;
-    } else {
-      console.log(`❌ Usuario encontrado pero no tiene nodo en el árbol`);
-      return null;
-    }
+    if (node) return node;
   }
   
-  // Buscar por nombre exacto
-  user = users.find(u => 
-    u.name === cleanId || 
-    u.lastName === cleanId ||
-    `${u.name} ${u.lastName}` === cleanId
-  );
+  // 3. Buscar por nombre exacto
+  user = nameMap.get(cleanId.toLowerCase());
   if (user) {
-    console.log(`✅ Usuario encontrado por nombre: ${user.name} ${user.lastName}`);
     node = tree.find(n => n.id === user.id);
-    if (node) {
-      console.log(`✅ Nodo del usuario encontrado: ${node.id}`);
-      return node;
-    }
+    if (node) return node;
   }
   
-  // Búsqueda parcial por DNI
-  if (cleanId.length >= 4) {
+  // 4. Búsqueda parcial por DNI (solo si es suficientemente largo)
+  if (cleanId.length >= 6) {
     user = users.find(u => 
       u.dni && u.dni.toString().includes(cleanId)
     );
     if (user) {
-      console.log(`✅ Usuario encontrado por DNI parcial: ${user.dni}`);
       node = tree.find(n => n.id === user.id);
-      if (node) {
-        console.log(`✅ Nodo del usuario encontrado: ${node.id}`);
-        return node;
-      }
+      if (node) return node;
     }
   }
   
-  // Búsqueda parcial por nombre
-  if (cleanId.length >= 3) {
-    user = users.find(u => 
-      u.name && u.name.toLowerCase().includes(cleanId.toLowerCase()) ||
-      u.lastName && u.lastName.toLowerCase().includes(cleanId.toLowerCase())
-    );
-    if (user) {
-      console.log(`✅ Usuario encontrado por nombre parcial: ${user.name} ${user.lastName}`);
-      node = tree.find(n => n.id === user.id);
-      if (node) {
-        console.log(`✅ Nodo del usuario encontrado: ${node.id}`);
-        return node;
-      }
-    }
-  }
-  
-  console.log(`❌ No se encontró ningún nodo con identificador: "${cleanId}"`);
   return null;
 }
 
@@ -127,25 +111,20 @@ function isValidMove(tree, fromId, toId) {
   return !isDescendant(toId, fromId);
 }
 
-// Función para obtener hijos directos de un nodo (lazy loading)
-async function getDirectChildren(nodeId, tree, users) {
+// Función optimizada para obtener hijos directos
+function getDirectChildren(nodeId, tree, users) {
   const node = tree.find(n => n.id === nodeId);
   if (!node || !node.childs || node.childs.length === 0) {
     return { children: [], children_points: [] };
   }
 
-  // Obtener nodos hijos
-  const childNodes = tree.filter(n => node.childs.includes(n.id));
+  // Crear mapas para acceso rápido
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const nodeMap = new Map(tree.map(n => [n.id, n]));
   
-  // Obtener usuarios de los hijos
-  const childUsers = users.filter(u => node.childs.includes(u.id));
-  
-  // Crear mapa de usuarios para acceso rápido
-  const userMap = new Map(childUsers.map(u => [u.id, u]));
-  
-  // Mapear hijos con datos de usuario en el orden correcto
+  // Mapear hijos con datos de usuario
   const children = node.childs.map(childId => {
-    const childNode = childNodes.find(n => n.id === childId);
+    const childNode = nodeMap.get(childId);
     const childUser = userMap.get(childId);
     
     if (!childNode || !childUser) return null;
@@ -171,7 +150,7 @@ async function getDirectChildren(nodeId, tree, users) {
     };
   }).filter(Boolean);
 
-  // Calcular puntos grupales de cada hijo
+  // Calcular puntos grupales
   const children_points = children.map(child => child.total_points || 0);
 
   return { children, children_points };
@@ -190,7 +169,7 @@ export default async (req, res) => {
     return;
   }
 
-  // Timeout de 10 segundos
+  // Timeout de 8 segundos (reducido para producción)
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
       res.status(503).json({
@@ -199,7 +178,7 @@ export default async (req, res) => {
         timeout: true
       });
     }
-  }, 10000);
+  }, 8000);
 
   try {
     await midd(req, res);
@@ -214,17 +193,7 @@ export default async (req, res) => {
       const node = findNode(tree, users, nodeId);
       if (!node) {
         clearTimeout(timeout);
-        
-        // Proporcionar información de debug
-        const suggestions = [];
-        if (nodeId.length >= 4) {
-          const partialMatches = users.filter(u => 
-            u.dni && u.dni.toString().includes(nodeId.toString())
-          ).slice(0, 5);
-          suggestions.push(...partialMatches.map(u => `${u.name} ${u.lastName} (DNI: ${u.dni})`));
-        }
-        
-        return res.json(error(`Nodo no encontrado: "${nodeId}". ${suggestions.length > 0 ? 'Sugerencias: ' + suggestions.join(', ') : ''}`));
+        return res.json(error(`Nodo no encontrado: "${nodeId}"`));
       }
 
       // Obtener usuario del nodo
@@ -235,7 +204,7 @@ export default async (req, res) => {
       }
 
       // Obtener hijos directos (lazy loading)
-      const { children, children_points } = await getDirectChildren(node.id, tree, users);
+      const { children, children_points } = getDirectChildren(node.id, tree, users);
 
       // Crear nodo principal con datos de usuario
       const mainNode = {
