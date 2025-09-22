@@ -18,45 +18,96 @@ export default async (req, res) => {
     return;
   }
 
+  // Timeout de 10 segundos
+  const timeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(503).json({
+        success: false,
+        message: 'La solicitud está tardando demasiado. Por favor, inténtalo de nuevo.',
+        timeout: true
+      });
+    }
+  }, 10000);
 
-  await midd(req, res)
+  try {
+    await midd(req, res)
 
-  let { session } = req.query
+    let { session } = req.query
 
-  // valid session
-  session = await Session.findOne({ value: session })
-  if(!session) return res.json(error('invalid session'))
+    // valid session
+    session = await Session.findOne({ value: session })
+    if(!session) {
+      clearTimeout(timeout);
+      return res.json(error('invalid session'))
+    }
 
-  const user = await User.findOne({ id: session.id })
+    const user = await User.findOne({ id: session.id })
+    if(!user) {
+      clearTimeout(timeout);
+      return res.json(error('user not found'))
+    }
 
-  const users = await User.find({})
+    if(req.method == 'GET') {
+      // OPTIMIZACIÓN: Usar agregación de MongoDB en lugar de cargar todos los usuarios
+      const transactions = await Transaction.aggregate([
+        {
+          $match: { 
+            user_id: user.id, 
+            name: 'wallet transfer' 
+          }
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_user_id',
+            foreignField: 'id',
+            as: 'user_info',
+            pipeline: [
+              {
+                $project: {
+                  name: 1,
+                  lastName: 1
+                }
+              }
+            ]
+          }
+        },
+        {
+          $addFields: {
+            name: {
+              $concat: [
+                { $arrayElemAt: ['$user_info.name', 0] },
+                ' ',
+                { $arrayElemAt: ['$user_info.lastName', 0] }
+              ]
+            }
+          }
+        },
+        {
+          $project: {
+            user_info: 0
+          }
+        }
+      ]);
 
-
-  if(req.method == 'GET') {
-
-    // get collects
-    let transactions = await Transaction.find({ user_id: user.id, name: 'wallet transfer' })
-
-    transactions = transactions.map(a => {
-
-      const u = users.find(e => e.id == a._user_id)
-
-      return { ...a, name: u.name + ' ' + u.lastName }
-    })
-
-
-    // response
-    return res.json(success({
-      name:       user.name,
-      lastName:   user.lastName,
-      affiliated: user.affiliated,
-      activated:  user.activated,
-      plan:       user.plan,
-      country:    user.country,
-      photo:      user.photo,
-      tree:       user.tree,
-
-      transactions,
-    }))
+      clearTimeout(timeout);
+      
+      // response
+      return res.json(success({
+        name:       user.name,
+        lastName:   user.lastName,
+        affiliated: user.affiliated,
+        activated:  user.activated,
+        plan:       user.plan,
+        country:    user.country,
+        photo:      user.photo,
+        tree:       user.tree,
+        transactions,
+      }))
+    }
+  } catch (err) {
+    console.error('Error en transfers API:', err);
+    clearTimeout(timeout);
+    return res.status(500).json(error('Internal server error'));
   }
 }

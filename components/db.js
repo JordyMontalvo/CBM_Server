@@ -409,6 +409,14 @@ class Transaction {
     client.close()
     return transactions
   }
+  async aggregate(pipeline) {
+    const client       = new Client(URL)
+    const conn         = await client.connect()
+    const db           = conn.db(name)
+    const transactions = await db.collection('transactions').aggregate(pipeline).toArray()
+    client.close()
+    return transactions
+  }
   async insert(transaction) {
     const client = new Client(URL)
     const conn   = await client.connect()
