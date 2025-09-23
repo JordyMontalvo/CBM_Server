@@ -38,12 +38,8 @@ function total_points(id) {
 }
 
 function total_affiliates(id, parent_id) {
+
   const node = tree.find(e => e.id == id)
-  if (!node) return;
-  if (!node.affiliated) node.affiliated = false;
-  if (!node.parentId) node.parentId = null;
-  if (!node.closed) node.closed = false;
-  if (!node.childs) node.childs = [];
 
   node.total_affiliates = (node.affiliated && node.parentId == parent_id && !node.closed) ? 1 : 0
 
@@ -70,21 +66,12 @@ function calc_range(arr, p) {
 }
 
 function rank(node) {
-  if (!node) return;
-  if (!node.rank) node.rank = 'none';
-  if (!node.activated) node.activated = false;
-  if (!node.total) node.total = [];
-  if (!node.points) node.points = 0;
-  
   if(node.activated) node.rank = calc_range(node.total, node.points)
   else node.rank = 'none'
 }
 
 function find_rank(id, name) {
   const node = tree.find(e => e.id == id)
-  if (!node) return false;
-  if (!node.rank) node.rank = 'none';
-  if (!node.childs) node.childs = [];
 
   const i = pos[node.rank]
   const j = pos[name]
@@ -99,10 +86,6 @@ function find_rank(id, name) {
 }
 
 function is_rank(node, rank) {
-  if (!node) return false;
-  if (!node.rank) node.rank = 'none';
-  if (!node.childs) node.childs = [];
-  if (!node.total) node.total = [];
 
   let total = 0, M, M1, M2
 
@@ -139,10 +122,6 @@ function is_rank(node, rank) {
 }
 
 function next_rank(node) {
-  if (!node) return;
-  if (!node.rank) node.rank = 'none';
-  if (!node.total) node.total = [];
-  if (!node.childs) node.childs = [];
 
   let total = 0
 
@@ -162,11 +141,11 @@ function next_rank(node) {
 
   const arr = node.total
 
-  if (node.rank == 'RUBI')              { M  =  21000; M1 =  5500; M2 =  5250 }
-  if (node.rank == 'DIAMANTE')          { M  =  60000; M1 = 13000; M2 = 12000 }
-  if (node.rank == 'DOBLE DIAMANTE')    { M  = 115000; M1 = 23000; M2 = 23000 }
-  if (node.rank == 'TRIPLE DIAMANTE')   { M  = 225000; M1 = 37500; M2 = 37500 }
-  if (node.rank == 'DIAMANTE ESTRELLA') { M  = 520000; M1 = 87000; M2 = 86700 }
+  if (rank == 'RUBI')              { M  =  21000; M1 =  5500; M2 =  5250 }
+  if (rank == 'DIAMANTE')          { M  =  60000; M1 = 13000; M2 = 12000 }
+  if (rank == 'DOBLE DIAMANTE')    { M  = 115000; M1 = 23000; M2 = 23000 }
+  if (rank == 'TRIPLE DIAMANTE')   { M  = 225000; M1 = 37500; M2 = 37500 }
+  if (rank == 'DIAMANTE ESTRELLA') { M  = 520000; M1 = 87000; M2 = 86700 }
 
   for(const [i, a] of arr.entries()) {
     if(i == 0) total += arr[i] > M1 ? M1 : arr[i]
@@ -199,27 +178,7 @@ function next_rank(node) {
 
 
 export default async (req, res) => {
-  // CORS headers directos
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  // Manejar preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  // Timeout de 25 segundos (menos que el límite de Heroku de 30s)
-  const timeout = setTimeout(() => {
-    if (!res.headersSent) {
-      res.status(504).json(error('Request timeout'));
-    }
-  }, 25000);
-
-  try {
-    await midd(req, res)
+  await midd(req, res)
 
   let { session } = req.query
 
@@ -229,19 +188,10 @@ export default async (req, res) => {
 
   // get USER
   const user = await User.findOne({ id: session.id })
-  if (!user) {
-    clearTimeout(timeout);
-    return res.json(error('User not found'));
-  }
-
-  // Asegurar que el usuario tenga propiedades requeridas
-  if (!user.rank) user.rank = 'none';
-  if (!user.points) user.points = 0;
-  if (!user.affiliation_points) user.affiliation_points = 0;
 
   // get transactions
-  const transactions        = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} }) || []
-  const virtualTransactions = await Transaction.find({ user_id: user.id, virtual:              true    }) || []
+  const transactions        = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
+  const virtualTransactions = await Transaction.find({ user_id: user.id, virtual:              true    })
 
   const ins         = acum(transactions,        {type: 'in' }, 'value')
   const outs        = acum(transactions,        {type: 'out'}, 'value')
@@ -249,46 +199,23 @@ export default async (req, res) => {
   const outsVirtual = acum(virtualTransactions, {type: 'out'}, 'value')
 
 
-  // Optimización: Solo obtener usuarios necesarios para el árbol del usuario actual
-  const userTree = await Tree.findOne({ id: user.id })
-  if (!userTree) {
-    return res.json(error('User tree not found'))
-  }
+  const users = await User.find({ tree: true })
+        tree  = await Tree.find({})
 
-  // Obtener solo los IDs necesarios para el árbol del usuario
-  const allTreeIds = [user.id, ...userTree.childs]
-  const users = await User.find({ id: { $in: allTreeIds } })
-  tree = await Tree.find({ id: { $in: allTreeIds } })
-
-    tree.forEach(node => {
-      const user = users.find(e => e.id == node.id)
-      if (user) {
-        node.name               = (user.name || '') + ' ' + (user.lastName || '')
-        node.points             = Number(user.points || 0)
-        node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
-        node.affiliated         = user.affiliated || false
-        node.activated          = user.activated || false
-        node.parentId           = user.parentId || null
-        node.closed             = user.closed ? true : false
-      } else {
-        // Valores por defecto si no se encuentra el usuario
-        node.name               = 'Unknown User'
-        node.points             = 0
-        node.affiliation_points = 0
-        node.affiliated         = false
-        node.activated          = false
-        node.parentId           = null
-        node.closed             = false
-      }
-    })
+  tree.forEach(node => {
+    const user = users.find(e => e.id == node.id)
+    node.name               = user.name + ' ' + user.lastName
+    node.points             = Number(user.points)
+    node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
+    node.affiliated         = user.affiliated
+    node.activated          = user.activated
+    node.parentId           = user.parentId
+    node.closed             = user.closed ? true : false
+  })
 
   total_points(user.id)
 
   const node = tree.find(e => e.id == user.id)
-  if (!node) {
-    clearTimeout(timeout);
-    return res.status(500).json(error('User node not found in tree'));
-  }
 
   node.total = []
 
@@ -299,11 +226,6 @@ export default async (req, res) => {
   })
 
   node.total.sort((a, b) => b - a)
-
-  // Asegurar que el nodo tenga propiedades requeridas
-  if (!node.rank) node.rank = 'none';
-  if (!node.points) node.points = 0;
-  if (!node.activated) node.activated = false;
 
   rank(node)
 
@@ -328,37 +250,29 @@ export default async (req, res) => {
 
   const banner = await Banner.findOne({})
 
-    // response
-    clearTimeout(timeout);
-    return res.json(success({
-      name:       user.name || '',
-      lastName:   user.lastName || '',
-      affiliated: user.affiliated || false,
-      _activated: user._activated || false,
-      activated:  user.activated || false,
-      plan:       user.plan || 'default',
-      country:    user.country || '',
-      photo:      user.photo || '',
-      tree:       user.tree || false,
+  // response
+  return res.json(success({
+    name:       user.name,
+    lastName:   user.lastName,
+    affiliated: user.affiliated,
+    _activated: user._activated,
+    activated:  user.activated,
+    plan:       user.plan,
+    country:    user.country,
+    photo:      user.photo,
+    tree:       user.tree,
 
-      banner: banner || null,
-      ins: ins || 0,
-      insVirtual: insVirtual || 0,
-      outs: outs || 0,
-      balance: (ins - outs) || 0,
-     _balance: (insVirtual - outsVirtual) || 0,
-      rank:    user.rank || 'none',
-      points:  user.points || 0,
-      node: node || null,
-      n_affiliates: n_affiliates || 0,
-    }))
-  } catch (err) {
-    clearTimeout(timeout);
-    console.error('Dashboard error:', err);
-    if (!res.headersSent) {
-      return res.status(500).json(error('Internal server error'));
-    }
-  }
+    banner,
+    ins,
+    insVirtual,
+    outs,
+    balance: (ins - outs),
+   _balance: (insVirtual - outsVirtual),
+    rank:    user.rank,
+    points:  user.points,
+    node,
+    n_affiliates,
+  }))
 }
 
 
