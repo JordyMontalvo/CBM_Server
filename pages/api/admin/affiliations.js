@@ -101,7 +101,7 @@ function total_pay(id, parent_id, aff) {
 
 const handler = async (req, res) => {
   if (req.method == "GET") {
-    const { filter, page = 1, limit = 20, search } = req.query;
+    const { filter, page = 1, limit = 20, search, startDate, endDate } = req.query;
     const { account } = req.query;
 
     if (!(filter in q)) return res.json(error("invalid filter"));
@@ -128,10 +128,37 @@ const handler = async (req, res) => {
       // Construir query de búsqueda optimizada
       let affiliationsQuery = { ...qq };
       
+      // Añadir filtro de fechas si se proporcionan
+      if (startDate || endDate) {
+        const dateFilter = {};
+        
+        if (startDate) {
+          const startDateObj = new Date(startDate);
+          if (!isNaN(startDateObj.getTime())) {
+            dateFilter.$gte = startDateObj;
+          }
+        }
+        
+        if (endDate) {
+          const endDateObj = new Date(endDate);
+          if (!isNaN(endDateObj.getTime())) {
+            // Añadir 23:59:59 al final del día para incluir todo el día
+            endDateObj.setHours(23, 59, 59, 999);
+            dateFilter.$lte = endDateObj;
+          }
+        }
+        
+        if (Object.keys(dateFilter).length > 0) {
+          affiliationsQuery.date = dateFilter;
+        }
+        
+      }
+      
       if (search) {
         const searchLower = search.toLowerCase();
         // Usar agregación para búsqueda eficiente
         const pipeline = [
+          { $match: affiliationsQuery }, // Aplicar filtros de fecha PRIMERO
           {
             $lookup: {
               from: "users",
@@ -156,7 +183,6 @@ const handler = async (req, res) => {
             }
           },
           { $match: { user: { $ne: [] } } },
-          { $match: affiliationsQuery },
           { $sort: { date: -1 } },
           { $skip: skip },
           { $limit: limitNum },
@@ -174,6 +200,7 @@ const handler = async (req, res) => {
         ];
 
         const countPipeline = [
+          { $match: affiliationsQuery }, // Aplicar filtros de fecha PRIMERO
           {
             $lookup: {
               from: "users",
@@ -195,7 +222,6 @@ const handler = async (req, res) => {
             }
           },
           { $match: { user: { $ne: [] } } },
-          { $match: affiliationsQuery },
           { $count: "total" }
         ];
 
