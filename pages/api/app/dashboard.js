@@ -180,18 +180,32 @@ function next_rank(node) {
 export default async (req, res) => {
   await midd(req, res)
 
+  console.time('dashboard-endpoint');
+
   let { session } = req.query
 
   // valid session
+  console.time('session-query');
       session = await Session.findOne({ value: session })
+  console.timeEnd('session-query');
   if(!session)  return res.json(error('invalid session'))
 
   // get USER
+  console.time('user-query');
   const user = await User.findOne({ id: session.id })
+  console.timeEnd('user-query');
+  console.log('User query size:', JSON.stringify(user).length/1024/1024, 'MB');
 
   // get transactions
+  console.time('transactions-query');
   const transactions        = await Transaction.find({ user_id: user.id, virtual: {$in: [null, false]} })
+  console.timeEnd('transactions-query');
+  console.log('Transactions query size:', JSON.stringify(transactions).length/1024/1024, 'MB');
+
+  console.time('virtual-transactions-query');
   const virtualTransactions = await Transaction.find({ user_id: user.id, virtual:              true    })
+  console.timeEnd('virtual-transactions-query');
+  console.log('Virtual transactions query size:', JSON.stringify(virtualTransactions).length/1024/1024, 'MB');
 
   const ins         = acum(transactions,        {type: 'in' }, 'value')
   const outs        = acum(transactions,        {type: 'out'}, 'value')
@@ -199,8 +213,15 @@ export default async (req, res) => {
   const outsVirtual = acum(virtualTransactions, {type: 'out'}, 'value')
 
 
+  console.time('users-tree-query');
   const users = await User.find({ tree: true })
+  console.timeEnd('users-tree-query');
+  console.log('Users tree query size:', JSON.stringify(users).length/1024/1024, 'MB');
+
+  console.time('tree-query');
         tree  = await Tree.find({})
+  console.timeEnd('tree-query');
+  console.log('Tree query size:', JSON.stringify(tree).length/1024/1024, 'MB');
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
@@ -248,7 +269,13 @@ export default async (req, res) => {
     })
   }
 
+  console.time('banner-query');
   const banner = await Banner.findOne({})
+  console.timeEnd('banner-query');
+  console.log('Banner query size:', JSON.stringify(banner).length/1024/1024, 'MB');
+
+  console.timeEnd('dashboard-endpoint');
+  console.log('Total dashboard endpoint time completed');
 
   // response
   return res.json(success({
