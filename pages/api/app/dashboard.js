@@ -228,7 +228,7 @@ export default async (req, res) => {
       closed: 1,
       _id: 0 
     },
-    1000
+    null
   );
   console.timeEnd('users-tree-query');
   console.log('Users tree query size:', JSON.stringify(users).length/1024/1024, 'MB');
