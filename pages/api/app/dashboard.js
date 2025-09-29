@@ -241,13 +241,15 @@ export default async (req, res) => {
 
   tree.forEach(node => {
     const user = users.find(e => e.id == node.id)
-    node.name               = user.name + ' ' + user.lastName
-    node.points             = Number(user.points)
-    node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
-    node.affiliated         = user.affiliated
-    node.activated          = user.activated
-    node.parentId           = user.parentId
-    node.closed             = user.closed ? true : false
+    if (user) {
+      node.name               = (user.name || '') + ' ' + (user.lastName || '')
+      node.points             = Number(user.points || 0)
+      node.affiliation_points = user.affiliation_points ? user.affiliation_points : 0
+      node.affiliated         = user.affiliated
+      node.activated          = user.activated
+      node.parentId           = user.parentId
+      node.closed             = user.closed ? true : false
+    }
   })
 
   total_points(user.id)
