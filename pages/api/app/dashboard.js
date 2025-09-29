@@ -214,7 +214,21 @@ export default async (req, res) => {
 
 
   console.time('users-tree-query');
-  const users = await User.find({ tree: true })
+  const users = await User.find(
+    { tree: true },
+    { 
+      id: 1, 
+      name: 1, 
+      lastName: 1, 
+      points: 1, 
+      affiliation_points: 1, 
+      affiliated: 1, 
+      activated: 1, 
+      parentId: 1, 
+      closed: 1,
+      _id: 0 
+    }
+  )
   console.timeEnd('users-tree-query');
   console.log('Users tree query size:', JSON.stringify(users).length/1024/1024, 'MB');
 
