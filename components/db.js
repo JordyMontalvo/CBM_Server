@@ -42,6 +42,16 @@ class User {
     client.close()
     return users
   }
+  async findOptimized(query, projection = {}, limit = null) {
+    const client = new Client(URL)
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    let cursor = db.collection('users').find(query, { projection })
+    if (limit) cursor = cursor.limit(limit)
+    const users = await cursor.toArray()
+    client.close()
+    return users
+  }
   async insert(user) {
     const client = new Client(URL)
     const conn   = await client.connect()
