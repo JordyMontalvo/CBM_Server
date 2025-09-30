@@ -1,5 +1,5 @@
 import db from "../../../components/db";
-import lib from "../../../components/lib";
+import lib, { updateTotalPointsCascade } from "../../../components/lib";
 
 const { Tree, User } = db;
 const { success, midd, map, error } = lib;
@@ -270,6 +270,19 @@ export default async (req, res) => {
 
       // Realizar movimiento
       try {
+        // Obtener usuarios para calcular puntos
+        const toUser = users.find(u => u.id === toNode.id);
+        const fromUser = users.find(u => u.id === fromNode.id);
+        
+        if (!toUser || !fromUser) {
+          clearTimeout(timeout);
+          return res.json(error("Error: usuarios no encontrados"));
+        }
+
+        // Calcular puntos que aporta el usuario que se mueve
+        const userPoints = (toUser.points || 0) + (toUser.affiliation_points || 0);
+        const userTotalPoints = toUser.total_points || 0;
+
         // Remover del padre actual
         const currentParent = tree.find(n => n.id === toNode.parent);
         if (currentParent) {
@@ -297,13 +310,30 @@ export default async (req, res) => {
           { parent: toNode.parent }
         );
 
+        // Recalcular total_points en cascada para todos los nodos afectados
+        // Primero el padre anterior (si existe)
+        if (currentParent) {
+          await updateTotalPointsCascade(User, Tree, currentParent.id);
+        }
+        
+        // Luego el nuevo padre
+        await updateTotalPointsCascade(User, Tree, fromNode.id);
+
         // Limpiar cache para forzar recarga
         treeCache = null;
         usersCache = null;
         lastCacheTime = 0;
 
         clearTimeout(timeout);
-        return res.json(success({ message: "Nodo movido exitosamente" }));
+        return res.json(success({ 
+          message: "Nodo movido exitosamente",
+          points_transferred: {
+            user_points: userPoints,
+            user_total_points: userTotalPoints,
+            from_parent: fromUser.name || fromUser.dni,
+            to_parent: currentParent ? (users.find(u => u.id === currentParent.id)?.name || users.find(u => u.id === currentParent.id)?.dni) : 'Ninguno'
+          }
+        }));
 
       } catch (moveError) {
         console.error("Error moviendo nodo:", moveError);
