@@ -97,20 +97,15 @@ export async function updateTotalPointsCascade(User, Tree, userId) {
   const user = await User.findOne({ id: userId });
   if (!user) return;
 
-  // 3. Calcular el total de los hijos (puntos personales + total_points)
+  // 3. Calcular el total de los hijos
   let childrenTotal = 0;
   if (node.childs && node.childs.length > 0) {
     const childUsers = await User.find({ id: { $in: node.childs } });
-    childrenTotal = childUsers.reduce((acc, c) => {
-      // Sumar puntos personales del hijo + sus total_points (que incluyen sus propios hijos)
-      const childPersonalPoints = (c.points || 0) + (c.affiliation_points || 0);
-      const childTotalPoints = c.total_points || 0;
-      return acc + childPersonalPoints + childTotalPoints;
-    }, 0);
+    childrenTotal = childUsers.reduce((acc, c) => acc + (c.total_points || 0), 0);
   }
 
-  // 4. Calcular el total_points propio (solo puntos de hijos, no personales)
-  const total_points = childrenTotal;
+  // 4. Calcular el total_points propio
+  const total_points = (user.points || 0) + (user.affiliation_points || 0) + childrenTotal;
 
   // 5. Guardar el total_points en el usuario
   await User.update({ id: userId }, { total_points });
