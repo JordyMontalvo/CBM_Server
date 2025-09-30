@@ -154,8 +154,12 @@ export default async (req, res) => {
     if (user.plan == 'default') {
       try {
         const [users, treeData] = await Promise.all([
-          User.find({ tree: true }).limit(1000), // Limitar usuarios
-          Tree.find({}).limit(1000) // Limitar nodos del árbol
+          User.findOptimized(
+            { tree: true },
+            { id: 1, plan: 1, affiliation_points: 1, parentId: 1, closeds: 1, _id: 0 },
+            null
+          ),
+          Tree.find({})
         ]);
 
         // Crear mapa de usuarios para acceso rápido
