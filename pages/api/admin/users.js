@@ -29,6 +29,7 @@ const U = [
   "virtualbalance",
   "country",
   "rank",
+  "affiliation_points",
 ];
 
 const URL = process.env.DB_URL;
@@ -412,7 +413,7 @@ const handler = async (req, res) => {
     if (action == "name") {
       // console.log('edit name ...')
 
-      const { _name, _lastName, _dni, _password, _parent_dni, _points, _rank } =
+      const { _name, _lastName, _dni, _password, _parent_dni, _points, _rank, _affiliation_points } =
         req.body.data;
       console.log({
         _name,
@@ -422,6 +423,7 @@ const handler = async (req, res) => {
         _parent_dni,
         _points,
         _rank,
+        _affiliation_points,
       });
 
       const user = await User.findOne({ id });
@@ -433,17 +435,22 @@ const handler = async (req, res) => {
         if (user2) return res.json(error("invalid dni"));
       }
 
-      await User.update(
-        { id },
-        {
-          name: _name,
-          lastName: _lastName,
-          dni: _dni,
-          points: _points,
-          rank: _rank,
-          activated: _points >= 100 ? true : user.activated,
-        }
-      );
+      const updateData = {
+        name: _name,
+        lastName: _lastName,
+        dni: _dni,
+        points: _points,
+        rank: _rank,
+        activated: _points >= 100 ? true : user.activated,
+      };
+
+      // Solo actualizar affiliation_points si se proporciona
+      if (_affiliation_points !== undefined && _affiliation_points !== null) {
+        updateData.affiliation_points = parseFloat(_affiliation_points);
+      }
+
+      await User.update({ id }, updateData);
+      
       // Actualizar total_points en el árbol
       await updateTotalPointsCascade(User, Tree, id);
 
