@@ -1,5 +1,6 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
+import cache from "../../../components/cache"
 
 const { Product } = db
 const { midd, success, rand } = lib
@@ -97,6 +98,9 @@ export default async (req, res) => {
           val_desc: '',
         })
       }
+      
+      // Limpiar cachés de productos para que se reflejen los cambios en afiliaciones
+      cache.clearProductCaches();
     }
 
     if (action == 'add') { ; console.log('add ...')
@@ -119,12 +123,18 @@ export default async (req, res) => {
           price
         })
       }
+      
+      // Limpiar cachés de productos para que se reflejen los cambios en afiliaciones
+      cache.clearProductCaches();
     }
     if (action == 'delete') { ; console.log('delete ...')
 
       const { id } = req.body
 
       await Product.delete({ id })
+      
+      // Limpiar cachés de productos para que se reflejen los cambios en afiliaciones
+      cache.clearProductCaches();
     }
 
     // response

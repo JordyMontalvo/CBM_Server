@@ -1,34 +1,36 @@
 import db  from "../../../components/db"
 import lib from "../../../components/lib"
+import cache from "../../../components/cache"
 
 const { User, Session, Plan, Product, Affiliation, Office, Tree, Transaction } = db
 const { error, success, midd, rand, acum } = lib
 
-// Cache para evitar consultas repetidas
-let plansCache = null;
-let productsCache = null;
-let officesCache = null;
-
 // Función para obtener planes con cache
 async function getPlans() {
+  let plansCache = cache.getCache('plans');
   if (!plansCache) {
     plansCache = await Plan.find({});
+    cache.setCache('plans', plansCache);
   }
   return plansCache;
 }
 
 // Función para obtener productos con cache
 async function getProducts() {
+  let productsCache = cache.getCache('products');
   if (!productsCache) {
     productsCache = await Product.find({ aff_price: {$exists: true }});
+    cache.setCache('products', productsCache);
   }
   return productsCache;
 }
 
 // Función para obtener oficinas con cache
 async function getOffices() {
+  let officesCache = cache.getCache('offices');
   if (!officesCache) {
     officesCache = await Office.find({});
+    cache.setCache('offices', officesCache);
   }
   return officesCache;
 }
