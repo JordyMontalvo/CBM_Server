@@ -256,14 +256,39 @@ const handler = async (req, res) => {
       console.log('Valor calculado activatedValue:', activatedValue, 'tipo:', typeof activatedValue);
       console.log(`Cambiando estado de usuario ${id}:`, {
         estadoAnterior: user.activated,
-        nuevoEstado: activatedValue
+        estadoAnterior_activated: user._activated,
+        nuevoEstado: activatedValue,
+        puntos_actuales: user.points
       });
 
-      await User.update({ id }, { activated: activatedValue });
+      // El admin puede forzar la activación/desactivación manualmente
+      // Si activa: ambos campos van a true
+      // Si desactiva: ambos campos van a false (forzado por admin)
+      await User.update({ id }, { 
+        activated: activatedValue,
+        _activated: activatedValue  // Sincronizar ambos campos
+      });
+      
+      // Si se activa el usuario, migrar transacciones virtuales a reales
+      if (activatedValue === true && !user.activated) {
+        console.log('Usuario activado - migrando transacciones virtuales a reales');
+        const transactions = await Transaction.find({
+          user_id: id,
+          virtual: true,
+        });
+
+        for (let transaction of transactions) {
+          console.log('Migrando transacción:', transaction.id);
+          await Transaction.update({ id: transaction.id }, { virtual: false });
+        }
+      }
       
       // Verificar que se actualizó correctamente
       const updatedUser = await User.findOne({ id });
-      console.log(`Estado después de actualizar:`, updatedUser.activated, 'tipo:', typeof updatedUser.activated);
+      console.log(`Estado después de actualizar:`, {
+        activated: updatedUser.activated,
+        _activated: updatedUser._activated
+      });
       
       return res.json(success({ activated: activatedValue }));
     }
@@ -435,13 +460,21 @@ const handler = async (req, res) => {
         if (user2) return res.json(error("invalid dni"));
       }
 
+      // Determinar el nuevo estado de activación según umbrales
+      // _activated: se activa con >= 60 puntos, una vez true permanece true
+      const new_activated = user._activated ? true : _points >= 60;
+      
+      // activated: se activa con >= 100 puntos, una vez true permanece true
+      const newActivated = user.activated ? true : _points >= 100;
+      
       const updateData = {
         name: _name,
         lastName: _lastName,
         dni: _dni,
         points: _points,
         rank: _rank,
-        activated: _points >= 100 ? true : user.activated,
+        activated: newActivated,
+        _activated: new_activated,
       };
 
       // Solo actualizar affiliation_points si se proporciona
