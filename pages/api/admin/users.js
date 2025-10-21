@@ -5,7 +5,7 @@ import { MongoClient } from "mongodb";
 import { updateTotalPointsCascade } from '../../../components/lib'
 
 const { User, Transaction, Tree} = db;
-const { error, success, midd, model } = lib;
+const { error, success, midd, model, rand } = lib;
 
 // valid filters
 // const q = { all: {}, affiliated: { affiliated: true }, activated: { activated: true } }
@@ -226,6 +226,186 @@ const handler = async (req, res) => {
         console.log({ transaction });
 
         await Transaction.update({ id: transaction.id }, { virtual: false });
+      }
+    }
+
+    if (action == "toggle-active") {
+      console.log("=== TOGGLE-ACTIVE BACKEND ===");
+      const { activated } = req.body;
+      
+      console.log('req.body completo:', req.body);
+      console.log('activated recibido:', activated, 'tipo:', typeof activated);
+      
+      const user = await User.findOne({ id });
+      if (!user) return res.json(error("Usuario no encontrado"));
+
+      console.log('Usuario actual - activated:', user.activated, 'tipo:', typeof user.activated);
+
+      // Asegurar que activated sea un booleano verdadero
+      let activatedValue;
+      if (activated === true || activated === 'true' || activated === 1 || activated === '1') {
+        activatedValue = true;
+      } else if (activated === false || activated === 'false' || activated === 0 || activated === '0') {
+        activatedValue = false;
+      } else {
+        // Si no es claro, usar el valor opuesto al actual
+        activatedValue = !user.activated;
+      }
+      
+      console.log('Valor calculado activatedValue:', activatedValue, 'tipo:', typeof activatedValue);
+      console.log(`Cambiando estado de usuario ${id}:`, {
+        estadoAnterior: user.activated,
+        nuevoEstado: activatedValue
+      });
+
+      await User.update({ id }, { activated: activatedValue });
+      
+      // Verificar que se actualizó correctamente
+      const updatedUser = await User.findOne({ id });
+      console.log(`Estado después de actualizar:`, updatedUser.activated, 'tipo:', typeof updatedUser.activated);
+      
+      return res.json(success({ activated: activatedValue }));
+    }
+
+    if (action == "transfer-balance") {
+      console.log("=== TRANSFER-BALANCE BACKEND ===");
+      console.log("req.body completo:", req.body);
+      const { amount, direction } = req.body; // direction: 'toVirtual' or 'toAvailable'
+      
+      console.log("amount recibido:", amount, "tipo:", typeof amount);
+      console.log("direction recibido:", direction);
+      
+      // Convertir amount a número
+      const amountNum = parseFloat(amount);
+      console.log("amount convertido a número:", amountNum, "tipo:", typeof amountNum);
+      console.log("isNaN(amountNum):", isNaN(amountNum));
+      console.log("amountNum <= 0:", amountNum <= 0);
+      
+      if (!amount || isNaN(amountNum) || amountNum <= 0) {
+        console.log("❌ Rechazando transferencia - monto inválido");
+        return res.json(error("Monto inválido"));
+      }
+
+      const user = await User.findOne({ id });
+      if (!user) {
+        console.log("❌ Usuario no encontrado:", id);
+        return res.json(error("Usuario no encontrado"));
+      }
+      
+      console.log("✓ Usuario encontrado:", user.name, user.lastName);
+
+      try {
+        // Verificar saldos actuales
+        const availableTransactions = await Transaction.find({
+          user_id: id,
+          virtual: { $in: [null, false] }
+        });
+        const virtualTransactions = await Transaction.find({
+          user_id: id,
+          virtual: true
+        });
+
+        const availableIns = availableTransactions
+          .filter(t => t.type === 'in')
+          .reduce((sum, t) => sum + parseFloat(t.value), 0);
+        const availableOuts = availableTransactions
+          .filter(t => t.type === 'out')
+          .reduce((sum, t) => sum + parseFloat(t.value), 0);
+        const availableBalance = availableIns - availableOuts;
+
+        const virtualIns = virtualTransactions
+          .filter(t => t.type === 'in')
+          .reduce((sum, t) => sum + parseFloat(t.value), 0);
+        const virtualOuts = virtualTransactions
+          .filter(t => t.type === 'out')
+          .reduce((sum, t) => sum + parseFloat(t.value), 0);
+        const virtualBalance = virtualIns - virtualOuts;
+
+        console.log("Saldo disponible:", availableBalance);
+        console.log("Saldo no disponible:", virtualBalance);
+
+        if (direction === 'toVirtual') {
+          // De disponible a no disponible
+          console.log(`Intentando transferir ${amountNum} de disponible (${availableBalance}) a no disponible`);
+          
+          if (availableBalance < amountNum) {
+            console.log("❌ Saldo insuficiente");
+            return res.json(error(`Saldo disponible insuficiente. Disponible: ${availableBalance.toFixed(2)}, Solicitado: ${amountNum.toFixed(2)}`));
+          }
+
+          // Crear transacción de salida en disponible
+          await Transaction.insert({
+            id: rand(),
+            user_id: id,
+            type: 'out',
+            value: amountNum,
+            virtual: false,
+            date: new Date(),
+            name: 'admin-transfer',
+            desc: 'Transferencia a saldo no disponible'
+          });
+
+          // Crear transacción de entrada en no disponible
+          await Transaction.insert({
+            id: rand(),
+            user_id: id,
+            type: 'in',
+            value: amountNum,
+            virtual: true,
+            date: new Date(),
+            name: 'admin-transfer',
+            desc: 'Transferencia desde saldo disponible'
+          });
+
+          console.log(`✓ Transferencia exitosa: ${amountNum} de disponible a no disponible para usuario ${id}`);
+
+        } else if (direction === 'toAvailable') {
+          // De no disponible a disponible
+          console.log(`Intentando transferir ${amountNum} de no disponible (${virtualBalance}) a disponible`);
+          
+          if (virtualBalance < amountNum) {
+            console.log("❌ Saldo insuficiente");
+            return res.json(error(`Saldo no disponible insuficiente. Disponible: ${virtualBalance.toFixed(2)}, Solicitado: ${amountNum.toFixed(2)}`));
+          }
+
+          // Crear transacción de salida en no disponible
+          await Transaction.insert({
+            id: rand(),
+            user_id: id,
+            type: 'out',
+            value: amountNum,
+            virtual: true,
+            date: new Date(),
+            name: 'admin-transfer',
+            desc: 'Transferencia a saldo disponible'
+          });
+
+          // Crear transacción de entrada en disponible
+          await Transaction.insert({
+            id: rand(),
+            user_id: id,
+            type: 'in',
+            value: amountNum,
+            virtual: false,
+            date: new Date(),
+            name: 'admin-transfer',
+            desc: 'Transferencia desde saldo no disponible'
+          });
+
+          console.log(`✓ Transferencia exitosa: ${amountNum} de no disponible a disponible para usuario ${id}`);
+        } else {
+          console.log("❌ Dirección inválida:", direction);
+          return res.json(error("Dirección de transferencia inválida"));
+        }
+
+        return res.json(success({ 
+          message: 'Transferencia completada exitosamente',
+          amount: amountNum,
+          direction
+        }));
+      } catch (err) {
+        console.error("Error en transfer-balance:", err);
+        return res.json(error("Error al procesar la transferencia: " + err.message));
       }
     }
 
