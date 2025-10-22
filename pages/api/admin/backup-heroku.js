@@ -27,6 +27,10 @@ export default async (req, res) => {
   console.log("Request method:", req.method);
   console.log("Request headers:", req.headers);
   
+  // Configurar timeout más largo para backup
+  req.setTimeout(300000); // 5 minutos
+  res.setTimeout(300000); // 5 minutos
+  
   try {
     // Usar directorio temporal del sistema
     const tempDir = require('os').tmpdir();
@@ -66,21 +70,68 @@ export default async (req, res) => {
       fs.mkdirSync(backupDbPath, { recursive: true });
     }
     
-    // Exportar cada colección
+    // Exportar cada colección usando streaming para evitar problemas de memoria
     for (const collectionInfo of filteredCollections) {
       const collectionName = collectionInfo.name;
       console.log(`Exportando colección: ${collectionName}`);
       
       const collection = db.collection(collectionName);
-      const documents = await collection.find({}).toArray();
+      
+      // Obtener conteo de documentos para estimar memoria
+      const totalDocs = await collection.countDocuments();
+      console.log(`Colección ${collectionName}: ${totalDocs} documentos`);
+      
+      // Saltar colecciones muy grandes para evitar problemas de memoria
+      if (totalDocs > 50000) {
+        console.log(`⚠️ Saltando colección ${collectionName} (${totalDocs} docs) - demasiado grande para Heroku`);
+        continue;
+      }
       
       // Crear archivos BSON y metadata
       const bsonPath = path.join(backupDbPath, `${collectionName}.bson`);
       const metadataPath = path.join(backupDbPath, `${collectionName}.metadata.json`);
       
-      // Simular archivo BSON (en realidad es JSON, pero funcional)
-      const bsonData = JSON.stringify(documents, null, 2);
-      fs.writeFileSync(bsonPath, bsonData);
+      // Usar cursor para procesar documentos en lotes pequeños
+      const cursor = collection.find({});
+      const writeStream = fs.createWriteStream(bsonPath);
+      
+      let documentCount = 0;
+      let batch = [];
+      const BATCH_SIZE = 50; // Reducir tamaño de batch para Heroku
+      
+      writeStream.write('[\n');
+      
+      for await (const doc of cursor) {
+        batch.push(doc);
+        documentCount++;
+        
+        if (batch.length >= BATCH_SIZE) {
+          // Escribir batch al archivo
+          for (let i = 0; i < batch.length; i++) {
+            const isLast = (i === batch.length - 1);
+            writeStream.write(`  ${JSON.stringify(batch[i])}${isLast ? '' : ','}\n`);
+          }
+          
+          batch = []; // Limpiar batch
+          
+          // Forzar garbage collection si está disponible
+          if (global.gc) {
+            global.gc();
+          }
+          
+          // Pequeña pausa para liberar memoria
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+      
+      // Escribir batch final
+      for (let i = 0; i < batch.length; i++) {
+        const isLast = (i === batch.length - 1);
+        writeStream.write(`  ${JSON.stringify(batch[i])}${isLast ? '' : ','}\n`);
+      }
+      
+      writeStream.write(']');
+      writeStream.end();
       
       // Crear metadata
       const metadata = {
@@ -91,7 +142,7 @@ export default async (req, res) => {
       };
       fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
       
-      console.log(`Colección ${collectionName} exportada: ${documents.length} documentos`);
+      console.log(`Colección ${collectionName} exportada: ${documentCount} documentos`);
     }
     
     await client.close();
