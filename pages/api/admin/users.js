@@ -3,9 +3,15 @@ import db from "../../../components/db";
 import lib from "../../../components/lib";
 import { MongoClient } from "mongodb";
 import { updateTotalPointsCascade } from '../../../components/lib'
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 
 const { User, Transaction, Tree} = db;
 const { error, success, midd, model, rand } = lib;
+
+const execAsync = promisify(exec);
 
 // valid filters
 // const q = { all: {}, affiliated: { affiliated: true }, activated: { activated: true } }
@@ -432,6 +438,110 @@ const handler = async (req, res) => {
       } catch (err) {
         console.error("Error en transfer-balance:", err);
         return res.json(error("Error al procesar la transferencia: " + err.message));
+      }
+    }
+
+    if (action == "download-backup") {
+      console.log("=== DOWNLOAD-BACKUP ===");
+      
+      try {
+        // Usar directorio temporal del sistema
+        const tempDir = require('os').tmpdir();
+        const backupDir = path.join(tempDir, 'cbm-backups');
+        
+        // Crear directorio temporal si no existe
+        if (!fs.existsSync(backupDir)) {
+          fs.mkdirSync(backupDir, { recursive: true });
+        }
+
+        // Generar nombre único para el backup
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const backupName = `cbm-backup-${timestamp}`;
+        const backupPath = path.join(backupDir, backupName);
+
+        console.log(`Generando backup temporal: ${backupName}`);
+        console.log(`Directorio temporal: ${backupDir}`);
+
+        // Comando mongodump
+        const mongoUri = process.env.DB_URL;
+        const dumpCommand = `mongodump --uri="${mongoUri}" --out="${backupPath}"`;
+
+        console.log('Ejecutando comando:', dumpCommand);
+        
+        // Ejecutar mongodump
+        const { stdout, stderr } = await execAsync(dumpCommand);
+        
+        if (stderr && !stderr.includes('done dumping')) {
+          console.error('Error en mongodump:', stderr);
+          return res.json(error('Error al generar el backup: ' + stderr));
+        }
+
+        console.log('Backup generado exitosamente');
+        console.log('stdout:', stdout);
+        console.log('stderr:', stderr);
+
+        // Crear archivo ZIP del backup
+        const zipPath = `${backupPath}.zip`;
+        const zipCommand = `cd "${backupDir}" && zip -r "${backupName}.zip" "${backupName}"`;
+        
+        console.log('Creando ZIP:', zipCommand);
+        await execAsync(zipCommand);
+
+        // Verificar que el ZIP se creó
+        if (!fs.existsSync(zipPath)) {
+          return res.json(error('Error al crear el archivo ZIP'));
+        }
+
+        // Obtener información del archivo
+        const stats = fs.statSync(zipPath);
+        const fileSize = stats.size;
+
+        console.log(`Backup ZIP creado: ${zipPath} (${fileSize} bytes)`);
+
+        // Configurar headers para descarga
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${backupName}.zip"`);
+        res.setHeader('Content-Length', fileSize);
+        res.setHeader('Cache-Control', 'no-cache');
+
+        // Enviar el archivo
+        const fileStream = fs.createReadStream(zipPath);
+        
+        fileStream.on('error', (err) => {
+          console.error('Error enviando archivo:', err);
+          if (!res.headersSent) {
+            res.status(500).json(error('Error enviando archivo'));
+          }
+        });
+
+        fileStream.on('end', () => {
+          console.log('Archivo enviado exitosamente');
+          
+          // Limpiar archivos inmediatamente después de enviar
+          setTimeout(() => {
+            try {
+              if (fs.existsSync(backupPath)) {
+                fs.rmSync(backupPath, { recursive: true, force: true });
+                console.log('Directorio backup eliminado:', backupPath);
+              }
+              if (fs.existsSync(zipPath)) {
+                fs.unlinkSync(zipPath);
+                console.log('Archivo ZIP eliminado:', zipPath);
+              }
+              console.log('Archivos temporales eliminados inmediatamente');
+            } catch (cleanupError) {
+              console.error('Error limpiando archivos temporales:', cleanupError);
+            }
+          }, 1000); // 1 segundo después de enviar
+        });
+
+        fileStream.pipe(res);
+
+      } catch (err) {
+        console.error('Error en download-backup:', err);
+        if (!res.headersSent) {
+          return res.json(error('Error al generar el backup: ' + err.message));
+        }
       }
     }
 
