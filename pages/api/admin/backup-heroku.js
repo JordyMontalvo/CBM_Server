@@ -52,9 +52,11 @@ export default async (req, res) => {
     
     const db = client.db('cbm');
     
-    // Obtener todas las colecciones
+    // Obtener todas las colecciones (excluyendo tablas de backup)
     const collections = await db.listCollections().toArray();
-    console.log(`Colecciones encontradas: ${collections.length}`);
+    const excludedCollections = ['backups', 'backup_chunks', 'backup_zips', 'backup_metadata'];
+    const filteredCollections = collections.filter(col => !excludedCollections.includes(col.name));
+    console.log(`Colecciones encontradas: ${filteredCollections.length} (excluyendo ${excludedCollections.length} tablas de backup)`);
     
     // Crear directorio para el backup
     const backupDbPath = path.join(backupPath, 'cbm');
@@ -63,7 +65,7 @@ export default async (req, res) => {
     }
     
     // Exportar cada colección
-    for (const collectionInfo of collections) {
+    for (const collectionInfo of filteredCollections) {
       const collectionName = collectionInfo.name;
       console.log(`Exportando colección: ${collectionName}`);
       
