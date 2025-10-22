@@ -24,6 +24,8 @@ export default async (req, res) => {
   }
 
   console.log("=== BACKUP HEROKU ENDPOINT ===");
+  console.log("Request method:", req.method);
+  console.log("Request headers:", req.headers);
   
   try {
     // Usar directorio temporal del sistema
@@ -118,6 +120,7 @@ export default async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${backupName}.zip"`);
     res.setHeader('Content-Length', fileSize);
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
 
     // Enviar el archivo
     const fileStream = fs.createReadStream(zipPath);
@@ -154,7 +157,15 @@ export default async (req, res) => {
 
   } catch (err) {
     console.error('Error en backup-heroku:', err);
+    console.error('Error stack:', err.stack);
+    
     if (!res.headersSent) {
+      // Asegurar que los headers CORS estén presentes en la respuesta de error
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      
       return res.status(500).json({ error: true, msg: 'Error al generar el backup: ' + err.message });
     }
   }
