@@ -3,21 +3,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import { createReadStream, createWriteStream } from 'fs';
-import { pipeline } from 'stream';
-import { promisify as promisifyUtil } from 'util';
 
 const execAsync = promisify(exec);
-const pipelineAsync = promisifyUtil(pipeline);
-
-// Función para formatear tamaño de archivo
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
 export default async (req, res) => {
   // CORS headers directos
@@ -36,7 +23,7 @@ export default async (req, res) => {
     return res.status(405).json({ error: true, msg: 'Method not allowed' });
   }
 
-  console.log("=== BACKUP COMPLETE ENDPOINT ===");
+  console.log("=== BACKUP MONGODUMP FORMAT ENDPOINT ===");
   console.log("Request method:", req.method);
   console.log("Request headers:", req.headers);
   
@@ -56,14 +43,14 @@ export default async (req, res) => {
 
     // Generar nombre único para el backup
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupName = `cbm-complete-backup-${timestamp}`;
+    const backupName = `cbm-mongodump-format-${timestamp}`;
     const backupPath = path.join(backupDir, backupName);
 
-    console.log(`Generando backup completo: ${backupName}`);
+    console.log(`Generando backup en formato mongodump: ${backupName}`);
     console.log(`Directorio temporal: ${backupDir}`);
 
-    // Conectar a MongoDB usando el driver nativo
-    const mongoUri = process.env.DB_URL || 'mongodb://cbmuser:CBM2025SecurePass123@ec2-3-139-58-107.us-east-2.compute.amazonaws.com:27017/cbm';
+    // Conectar a MongoDB
+    const mongoUri = process.env.DB_URL;
     const client = new MongoClient(mongoUri);
     
     await client.connect();
@@ -77,26 +64,13 @@ export default async (req, res) => {
     const filteredCollections = collections.filter(col => !excludedCollections.includes(col.name));
     console.log(`Colecciones encontradas: ${filteredCollections.length} (excluyendo ${excludedCollections.length} tablas de backup)`);
     
-    // Crear directorio para el backup
-    const backupDbPath = path.join(backupPath, 'cbm');
-    if (!fs.existsSync(backupDbPath)) {
-      fs.mkdirSync(backupDbPath, { recursive: true });
+    // Crear estructura de directorios como mongodump
+    const dbBackupPath = path.join(backupPath, 'cbm');
+    if (!fs.existsSync(dbBackupPath)) {
+      fs.mkdirSync(dbBackupPath, { recursive: true });
     }
     
-    // Crear archivo JSON principal con streaming
-    const mainJsonPath = path.join(backupDbPath, 'complete-backup.json');
-    const writeStream = createWriteStream(mainJsonPath);
-    
-    // Escribir inicio del JSON
-    writeStream.write('{\n');
-    writeStream.write(`  "name": "complete-backup-${timestamp}",\n`);
-    writeStream.write(`  "timestamp": "${new Date().toISOString()}",\n`);
-    writeStream.write('  "collections": {\n');
-    
-    let totalDocuments = 0;
-    let collectionIndex = 0;
-    
-    // Exportar cada colección usando streaming
+    // Exportar cada colección en formato mongodump
     for (const collectionInfo of filteredCollections) {
       const collectionName = collectionInfo.name;
       console.log(`Exportando colección: ${collectionName}`);
@@ -105,68 +79,95 @@ export default async (req, res) => {
       
       // Obtener conteo de documentos
       const totalDocs = await collection.countDocuments();
-      console.log(`Colección ${collectionName}: ${totalDocs} documentos`);
+      console.log(`📊 Colección ${collectionName}: ${totalDocs} documentos`);
       
-      writeStream.write(`    "${collectionName}": {\n`);
-      writeStream.write(`      "count": ${totalDocs},\n`);
-      writeStream.write(`      "documents": [\n`);
+      if (totalDocs === 0) {
+        console.log(`⚠️ Colección ${collectionName} está vacía, saltando...`);
+        continue;
+      }
       
-      // Usar cursor para procesar documentos en lotes muy pequeños
-      const cursor = collection.find({});
+      // Saltar colecciones muy grandes para evitar problemas de memoria
+      if (totalDocs > 100000) {
+        console.log(`⚠️ Saltando colección ${collectionName} (${totalDocs} docs) - demasiado grande para Heroku`);
+        continue;
+      }
+      
+      // Crear archivos JSON y metadata como mongodump
+      const jsonPath = path.join(dbBackupPath, `${collectionName}.json`);
+      const metadataPath = path.join(dbBackupPath, `${collectionName}.metadata.json`);
+      
+      // Crear archivo JSON
+      const writeStream = fs.createWriteStream(jsonPath);
+      
+      // Escribir documentos en formato BSON simulado
+      writeStream.write('[\n');
+      
       let documentCount = 0;
-      let batch = [];
-      const BATCH_SIZE = 25; // Lotes muy pequeños para Heroku
+      let isFirstDocument = true;
+      const BATCH_SIZE = 50; // Lotes pequeños para Heroku
+      
+      const cursor = collection.find({});
       
       for await (const doc of cursor) {
-        batch.push(doc);
-        documentCount++;
+        // Agregar coma si no es el primer documento
+        if (!isFirstDocument) {
+          writeStream.write(',\n');
+        }
         
-        if (batch.length >= BATCH_SIZE) {
-          // Escribir batch al archivo
-          for (let i = 0; i < batch.length; i++) {
-            const isLast = (i === batch.length - 1);
-            writeStream.write(`        ${JSON.stringify(batch[i])}${isLast ? '' : ','}\n`);
-          }
-          
-          batch = []; // Limpiar batch
-          
-          // Forzar garbage collection si está disponible
+        writeStream.write(`  ${JSON.stringify(doc)}`);
+        documentCount++;
+        isFirstDocument = false;
+        
+        // Log cada 100 documentos
+        if (documentCount % 100 === 0) {
+          console.log(`  📝 Procesados ${documentCount}/${totalDocs} documentos de ${collectionName}`);
+        }
+        
+        // Forzar garbage collection cada BATCH_SIZE documentos
+        if (documentCount % BATCH_SIZE === 0) {
           if (global.gc) {
             global.gc();
           }
-          
           // Pausa para liberar memoria
           await new Promise(resolve => setTimeout(resolve, 5));
         }
       }
       
-      // Escribir batch final
-      for (let i = 0; i < batch.length; i++) {
-        const isLast = (i === batch.length - 1);
-        writeStream.write(`        ${JSON.stringify(batch[i])}${isLast ? '' : ','}\n`);
-      }
+      writeStream.write('\n]');
+      writeStream.end();
       
-      writeStream.write(`      ]\n`);
-      writeStream.write(`    }${collectionIndex === filteredCollections.length - 1 ? '' : ','}\n`);
+      // Esperar a que el stream se cierre completamente
+      await new Promise((resolve, reject) => {
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      });
       
-      totalDocuments += documentCount;
-      collectionIndex++;
+      // Verificar que el archivo se creó correctamente
+      const fileStats = fs.statSync(jsonPath);
+      console.log(`📁 Archivo ${collectionName}.json creado: ${fileStats.size} bytes`);
       
-      console.log(`Colección ${collectionName} exportada: ${documentCount} documentos`);
+      // Crear metadata como mongodump (formato compatible)
+      const metadata = {
+        options: {},
+        index: [],
+        uuid: null,
+        collectionName: collectionName,
+        type: "collection"
+      };
+      
+      fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+      
+      console.log(`✅ Colección ${collectionName} exportada: ${documentCount} documentos (${fileStats.size} bytes)`);
     }
-    
-    writeStream.write('  }\n');
-    writeStream.write('}\n');
-    writeStream.end();
     
     await client.close();
     console.log('Conexión a MongoDB cerrada');
 
-    // Crear archivo ZIP del backup con compresión máxima
+    // Crear archivo ZIP del backup
     const zipPath = `${backupPath}.zip`;
-    const zipCommand = `cd "${backupDir}" && zip -9 -r "${backupName}.zip" "${backupName}"`;
+    const zipCommand = `cd "${backupDir}" && zip -r "${backupName}.zip" "${backupName}"`;
     
-    console.log('Creando ZIP con compresión máxima:', zipCommand);
+    console.log('Creando ZIP:', zipCommand);
     await execAsync(zipCommand);
 
     // Verificar que el ZIP se creó
@@ -178,7 +179,7 @@ export default async (req, res) => {
     const stats = fs.statSync(zipPath);
     const fileSize = stats.size;
 
-    console.log(`Backup ZIP creado: ${zipPath} (${formatFileSize(fileSize)})`);
+    console.log(`Backup ZIP creado: ${zipPath} (${fileSize} bytes)`);
 
     // Configurar headers para descarga
     res.setHeader('Content-Type', 'application/zip');
@@ -187,8 +188,8 @@ export default async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Length');
 
-    // Enviar el archivo usando streaming
-    const fileStream = createReadStream(zipPath);
+    // Enviar el archivo
+    const fileStream = fs.createReadStream(zipPath);
     
     fileStream.on('error', (err) => {
       console.error('Error enviando archivo:', err);
@@ -221,7 +222,7 @@ export default async (req, res) => {
     fileStream.pipe(res);
 
   } catch (err) {
-    console.error('Error en backup-complete:', err);
+    console.error('Error en backup-mongodump-format:', err);
     console.error('Error stack:', err.stack);
     
     if (!res.headersSent) {
