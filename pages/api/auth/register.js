@@ -13,10 +13,24 @@ const Register = async (req, res) => {
 
   code = code.trim().toUpperCase()
 
+  // Validar formato de email
+  if(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if(!emailRegex.test(email)) {
+      return res.json(error('invalid email'))
+    }
+  }
+
   const user = await User.findOne({ dni })
 
   // valid dni
   if(user) return res.json(error('dni already use'))
+  
+  // Validar email duplicado
+  if(email) {
+    const existingEmail = await User.findOne({ email })
+    if(existingEmail) return res.json(error('email already use'))
+  }
   
   const parent = await User.findOne({ token: code })
 
