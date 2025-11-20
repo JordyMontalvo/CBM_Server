@@ -6,7 +6,7 @@ const { error, success, _ids, _map, model, midd } = lib
 
 // models
 // const D = ['id', 'name', 'lastName', 'email', 'phone', 'affiliated', 'activated', 'affiliationDate']
-const D = ['id', 'name', 'lastName', 'affiliated', 'activated', 'tree', 'email', 'phone', 'points']
+const D = ['id', 'name', 'lastName', 'affiliated', 'activated', 'tree', 'email', 'phone', 'points', 'country']
 
 // Función helper para obtener todos los descendientes de un nodo recursivamente
 async function getAllDescendants(nodeId, allNodes = null) {
