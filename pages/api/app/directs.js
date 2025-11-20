@@ -6,7 +6,29 @@ const { error, success, _ids, _map, model, midd } = lib
 
 // models
 // const D = ['id', 'name', 'lastName', 'email', 'phone', 'affiliated', 'activated', 'affiliationDate']
-const D = ['id', 'name', 'lastName', 'affiliated', 'activated', 'tree', 'email', 'phone']
+const D = ['id', 'name', 'lastName', 'affiliated', 'activated', 'tree', 'email', 'phone', 'points']
+
+// Función helper para obtener todos los descendientes de un nodo recursivamente
+async function getAllDescendants(nodeId, allNodes = null) {
+  if (!allNodes) {
+    allNodes = await Tree.find({})
+  }
+  
+  const node = allNodes.find(n => n.id === nodeId)
+  if (!node || !node.childs || node.childs.length === 0) {
+    return []
+  }
+  
+  let descendants = [...node.childs]
+  
+  // Recursivamente obtener descendientes de cada hijo
+  for (const childId of node.childs) {
+    const childDescendants = await getAllDescendants(childId, allNodes)
+    descendants = [...descendants, ...childDescendants]
+  }
+  
+  return descendants
+}
 
 
 const directs = async (req, res) => {
@@ -50,32 +72,53 @@ const directs = async (req, res) => {
     // if(affiliation) return { ...d, plan: affiliation.plan.name }
     // else            return { ...d, plan: null }
 
-    return { ...d }
+    // Asegurar que points siempre esté presente (puntos personales)
+    return { 
+      ...d, 
+      points: direct.points !== undefined && direct.points !== null ? Number(direct.points) : 0
+    }
   })
 
 
-  // const node = await Tree.findOne({ id: user.id })
-  // let childs = node.childs
-  // console.log({ childs })
-
-  // let users = await User.find({ id: { $in: childs } })
-
-  // let names = users.map(u => u.name)
-  // console.log({ names })
-
+  // Obtener frontales (todos los descendientes en el árbol que NO son hijos directos)
+  let frontals = []
+  
   const node = await Tree.findOne({ id: user.id })
-  console.log({ node })
-  const childs = node.childs
-  console.log({ childs })
-
-  let frontals = await User.find({ id: {$in: childs}})
-  frontals = frontals.filter(e => e.parentId != user.id)
-  console.log({ frontals })
-
-  frontals = frontals.map(frontal => {
-    const d = model(frontal, D)
-    return { ...d }
-  })
+  
+  if (!node) {
+    console.log('No se encontró nodo en el árbol para el usuario:', user.id)
+    // Si no existe el nodo, crearlo con childs vacío
+    await Tree.insert({ id: user.id, childs: [], parent: user.parentId || null })
+    frontals = []
+  } else if (node.childs && Array.isArray(node.childs) && node.childs.length > 0) {
+    console.log('Nodo encontrado:', { nodeId: node.id, childsCount: node.childs.length })
+    
+    // Obtener todos los descendientes recursivamente
+    const allDescendants = await getAllDescendants(user.id)
+    console.log('Total descendientes encontrados:', allDescendants.length)
+    
+    if (allDescendants.length > 0) {
+      // Buscar usuarios que son descendientes pero NO son hijos directos
+      let frontalsUsers = await User.find({ id: { $in: allDescendants } })
+      console.log('Usuarios encontrados en descendientes:', frontalsUsers.length)
+      
+      // Filtrar: frontales son los que están en el árbol pero NO son hijos directos
+      frontals = frontalsUsers.filter(e => e && e.parentId != user.id)
+      console.log('Frontales filtrados (excluyendo directos):', frontals.length)
+      
+      frontals = frontals.map(frontal => {
+        const d = model(frontal, D)
+        // Asegurar que points siempre esté presente (puntos personales)
+        return { 
+          ...d, 
+          points: frontal.points !== undefined && frontal.points !== null ? Number(frontal.points) : 0
+        }
+      })
+    }
+  } else {
+    console.log('Nodo encontrado pero sin childs para el usuario:', user.id)
+    frontals = []
+  }
 
   // response
   return res.json(success({
