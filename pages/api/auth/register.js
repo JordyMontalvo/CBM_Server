@@ -42,8 +42,11 @@ const Register = async (req, res) => {
 
   const      id  = rand()
   const session  = rand() + rand() + rand()
-  const coverage = parent.coverage
-
+  
+  // Si el padre no tiene coverage (fue eliminado), usar su ID como referencia
+  const coverage = parent.coverage || { id: parent.id }
+  
+  // Asegurar que coverage tenga un id válido
   if(!coverage.id) coverage.id = parent.id
 
 
