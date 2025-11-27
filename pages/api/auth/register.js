@@ -42,13 +42,6 @@ const Register = async (req, res) => {
 
   const      id  = rand()
   const session  = rand() + rand() + rand()
-  
-  // Si el padre no tiene coverage (fue eliminado), usar su ID como referencia
-  const coverage = parent.coverage || { id: parent.id }
-  
-  // Asegurar que coverage tenga un id válido
-  if(!coverage.id) coverage.id = parent.id
-
 
   const token  = await Token.findOne({ free: true })
 
@@ -76,9 +69,6 @@ const Register = async (req, res) => {
     photo:     'https://ik.imagekit.io/asu/impulse/avatar_cWVgh_GNP.png',
     points: 0,
     tree: true,
-    coverage: {
-      id,
-    },
     token: token.value,
   })
   
@@ -89,13 +79,22 @@ const Register = async (req, res) => {
   })
 
 
-  let _id  = coverage.id
+  // Agregar el nuevo usuario como hijo directo del patrocinador
+  let _id  = parent.id
   let node = await Tree.findOne({ id: _id })
 
+  // Si el nodo del patrocinador no existe en el árbol, crearlo
+  if(!node) {
+    await Tree.insert({ id: _id, childs: [], parent: parent.parentId || null })
+    node = await Tree.findOne({ id: _id })
+  }
+
+  // Agregar el nuevo usuario como hijo del patrocinador
+  if(!node.childs) node.childs = []
   node.childs.push(id)
 
   await Tree.update({ id: _id }, { childs: node.childs })
-  await Tree.insert({ id:  id, childs: [], parent: _id })
+  await Tree.insert({ id: id, childs: [], parent: _id })
 
   // response
   return res.json(success({ session }))

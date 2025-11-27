@@ -32,14 +32,8 @@ export default async (req, res) => {
 
 
   if(req.method == 'POST') {
-
-    let { coverage } = req.body
-
-    console.log({ coverage })
-
-    await User.update({ id: user.id }, { coverage })
-
-    // response
-    return res.json(success())
+    // El campo coverage ya no está disponible - fue eliminado del sistema
+    // Los nuevos usuarios se registran directamente bajo su patrocinador
+    return res.json(error('coverage feature has been removed'))
   }
 }
