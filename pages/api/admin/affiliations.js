@@ -106,8 +106,11 @@ const handler = async (req, res) => {
 
     if (!(filter in q)) return res.json(error("invalid filter"));
 
-    let qq = q[filter];
-    if (account != "admin") qq.office = account;
+    // Crear una copia del objeto de query para no mutar el original
+    let qq = { ...q[filter] };
+    if (account && account !== "admin") {
+      qq.office = account;
+    }
 
     try {
       const client = new MongoClient(URL);
