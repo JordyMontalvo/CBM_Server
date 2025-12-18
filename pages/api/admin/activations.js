@@ -96,15 +96,50 @@ export default async (req, res) => {
     // Construir un objeto de búsqueda
     let userSearchQuery = {};
     if (search) {
-      const searchLower = search.toLowerCase();
-      userSearchQuery = {
-        $or: [
-          { name: { $regex: searchLower, $options: "i" } },
-          { lastName: { $regex: searchLower, $options: "i" } },
-          { dni: { $regex: searchLower, $options: "i" } },
-          { phone: { $regex: searchLower, $options: "i" } },
-        ],
-      };
+      const searchLower = search.toLowerCase().trim();
+      const searchTerms = searchLower.split(/\s+/); // Dividir por espacios
+      
+      // Si hay múltiples términos (nombre completo), buscar combinaciones
+      if (searchTerms.length > 1) {
+        const firstTerm = searchTerms[0];
+        const secondTerm = searchTerms.slice(1).join(' '); // Unir el resto como apellido
+        const fullSearch = searchLower; // Búsqueda completa
+        
+        userSearchQuery = {
+          $or: [
+            // Nombre completo: nombre contiene primera parte Y apellido contiene segunda parte
+            {
+              $and: [
+                { name: { $regex: firstTerm, $options: "i" } },
+                { lastName: { $regex: secondTerm, $options: "i" } }
+              ]
+            },
+            // Nombre completo invertido: apellido contiene primera parte Y nombre contiene segunda parte
+            {
+              $and: [
+                { lastName: { $regex: firstTerm, $options: "i" } },
+                { name: { $regex: secondTerm, $options: "i" } }
+              ]
+            },
+            // También buscar el término completo en nombre o apellido (por si acaso)
+            { name: { $regex: fullSearch, $options: "i" } },
+            { lastName: { $regex: fullSearch, $options: "i" } },
+            // Búsquedas individuales por otros campos
+            { dni: { $regex: fullSearch, $options: "i" } },
+            { phone: { $regex: fullSearch, $options: "i" } },
+          ],
+        };
+      } else {
+        // Búsqueda simple (un solo término)
+        userSearchQuery = {
+          $or: [
+            { name: { $regex: searchLower, $options: "i" } },
+            { lastName: { $regex: searchLower, $options: "i" } },
+            { dni: { $regex: searchLower, $options: "i" } },
+            { phone: { $regex: searchLower, $options: "i" } },
+          ],
+        };
+      }
     }
 
     const skip = (pageNum - 1) * limitNum;

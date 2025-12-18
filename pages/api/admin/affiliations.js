@@ -158,7 +158,53 @@ const handler = async (req, res) => {
       }
       
       if (search) {
-        const searchLower = search.toLowerCase();
+        const searchLower = search.toLowerCase().trim();
+        const searchTerms = searchLower.split(/\s+/); // Dividir por espacios
+        
+        // Construir query de búsqueda para nombre completo
+        let userMatchQuery = {};
+        if (searchTerms.length > 1) {
+          // Búsqueda por nombre completo
+          const firstTerm = searchTerms[0];
+          const secondTerm = searchTerms.slice(1).join(' '); // Unir el resto como apellido
+          const fullSearch = searchLower;
+          
+          userMatchQuery = {
+            $or: [
+              // Nombre completo: nombre contiene primera parte Y apellido contiene segunda parte
+              {
+                $and: [
+                  { name: { $regex: firstTerm, $options: "i" } },
+                  { lastName: { $regex: secondTerm, $options: "i" } }
+                ]
+              },
+              // Nombre completo invertido: apellido contiene primera parte Y nombre contiene segunda parte
+              {
+                $and: [
+                  { lastName: { $regex: firstTerm, $options: "i" } },
+                  { name: { $regex: secondTerm, $options: "i" } }
+                ]
+              },
+              // También buscar el término completo en nombre o apellido
+              { name: { $regex: fullSearch, $options: "i" } },
+              { lastName: { $regex: fullSearch, $options: "i" } },
+              // Búsquedas individuales por otros campos
+              { dni: { $regex: fullSearch, $options: "i" } },
+              { phone: { $regex: fullSearch, $options: "i" } },
+            ]
+          };
+        } else {
+          // Búsqueda simple (un solo término)
+          userMatchQuery = {
+            $or: [
+              { name: { $regex: searchLower, $options: "i" } },
+              { lastName: { $regex: searchLower, $options: "i" } },
+              { dni: { $regex: searchLower, $options: "i" } },
+              { phone: { $regex: searchLower, $options: "i" } },
+            ]
+          };
+        }
+        
         // Usar agregación para búsqueda eficiente
         const pipeline = [
           { $match: affiliationsQuery }, // Aplicar filtros de fecha PRIMERO
@@ -170,14 +216,7 @@ const handler = async (req, res) => {
               as: "user",
               pipeline: [
                 {
-                  $match: {
-                    $or: [
-                      { name: { $regex: searchLower, $options: "i" } },
-                      { lastName: { $regex: searchLower, $options: "i" } },
-                      { dni: { $regex: searchLower, $options: "i" } },
-                      { phone: { $regex: searchLower, $options: "i" } },
-                    ]
-                  }
+                  $match: userMatchQuery
                 },
                 {
                   $project: { name: 1, lastName: 1, dni: 1, phone: 1 }
