@@ -25,14 +25,18 @@ async function getProducts() {
   return productsCache;
 }
 
-// Función para obtener oficinas con cache
+// Función para obtener oficinas con cache (solo activas)
 async function getOffices() {
   let officesCache = cache.getCache('offices');
   if (!officesCache) {
-    officesCache = await Office.find({});
+    const allOffices = await Office.find({});
+    // Filtrar solo oficinas activas (active !== false significa que es true o undefined, ambos se consideran activas)
+    officesCache = allOffices.filter(office => office.active !== false);
     cache.setCache('offices', officesCache);
   }
-  return officesCache;
+  // Siempre filtrar para asegurar que solo se devuelvan oficinas activas
+  // Esto es importante por si el cache tiene datos antiguos
+  return officesCache.filter(office => office.active !== false);
 }
 
 // Función optimizada para calcular pagos

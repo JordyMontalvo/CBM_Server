@@ -1,5 +1,6 @@
 import db from "../../../components/db";
 import lib from "../../../components/lib";
+import cache from "../../../components/cache";
 
 const { Office, Product, Recharge } = db;
 const { success, midd } = lib;
@@ -50,6 +51,11 @@ export default async (req, res) => {
 
       office.recharges = recharges.filter((r) => r.office_id == office.id);
 
+      // Asegurar que el campo active existe (por defecto true si no existe)
+      if (office.active === undefined) {
+        office.active = true;
+      }
+
       return office;
     });
 
@@ -57,42 +63,92 @@ export default async (req, res) => {
   }
 
   if (req.method == "POST") {
-    const { id, products, office } = req.body;
-    // console.log({ products })
+    const { action, id, products: requestProducts, office, newOffice } = req.body;
 
-    if (products) {
-      // const office = await Office.findOne({ id })
+    // Crear nueva oficina
+    if (action === "create" && newOffice) {
+      // Verificar si ya existe una oficina con el mismo id
+      const existingOffice = await Office.findOne({ id: newOffice.id });
+      if (existingOffice) {
+        return res.json({ error: true, msg: "Ya existe una oficina con ese ID" });
+      }
+
+      // Inicializar productos con total 0 para todos los productos disponibles
+      const officeProducts = products.map((p) => ({
+        id: p.id,
+        total: 0,
+      }));
+
+      const officeData = {
+        id: newOffice.id,
+        name: newOffice.name || "",
+        email: newOffice.email || "",
+        password: newOffice.password || "",
+        address: newOffice.address || "",
+        accounts: newOffice.accounts || "",
+        products: officeProducts,
+        active: newOffice.active !== undefined ? newOffice.active : true,
+      };
+
+      await Office.insert(officeData);
+      // Invalidar cache de oficinas
+      cache.clearCache('offices');
+      return res.json(success({ msg: "Oficina creada correctamente" }));
+    }
+
+    // Activar/Desactivar oficina
+    if (action === "toggleActive" && id) {
+      const officeToUpdate = await Office.findOne({ id });
+      if (!officeToUpdate) {
+        return res.json({ error: true, msg: "Oficina no encontrada" });
+      }
+
+      const newActiveStatus = !(officeToUpdate.active !== false);
+      await Office.update({ id }, { active: newActiveStatus });
+      // Invalidar cache de oficinas para reflejar el cambio
+      cache.clearCache('offices');
+      return res.json(success({ msg: `Oficina ${newActiveStatus ? "activada" : "desactivada"} correctamente` }));
+    }
+
+    // Recargar productos (funcionalidad existente)
+    if (requestProducts) {
       const office = offices.find((e) => e.id == id);
-      // console.log(office)
+      if (!office) {
+        return res.json({ error: true, msg: "Oficina no encontrada" });
+      }
 
-      products.forEach((p, i) => {
-        // console.log({ i , p })
-        office.products[i].total += products[i].total;
+      requestProducts.forEach((p, i) => {
+        office.products[i].total += requestProducts[i].total;
       });
-
-      // console.log(office)
 
       await Office.update({ id }, { products: office.products });
 
       await Recharge.insert({
         date: new Date(),
         office_id: id,
-        products,
+        products: requestProducts,
       });
     }
 
-    if (office) {
+    // Actualizar datos de oficina (funcionalidad existente)
+    if (office && !action) {
       console.log(" update office ", office);
-      await Office.update(
-        { id },
-        {
-          email: office.email,
-          password: office.password,
-          name: office.name,
-          address: office.address,
-          accounts: office.accounts,
-        }
-      );
+      const updateData = {
+        email: office.email,
+        password: office.password,
+        name: office.name,
+        address: office.address,
+        accounts: office.accounts,
+      };
+
+      // Incluir active si viene en el objeto office
+      if (office.active !== undefined) {
+        updateData.active = office.active;
+        // Invalidar cache si se cambió el estado activo
+        cache.clearCache('offices');
+      }
+
+      await Office.update({ id }, updateData);
     }
 
     return res.json(success());

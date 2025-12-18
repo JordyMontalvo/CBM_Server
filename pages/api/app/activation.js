@@ -83,7 +83,9 @@ export default async (req, res) => {
 
   if(req.method == 'GET') {
 
-    const offices = await Office.find({})
+    // Filtrar solo oficinas activas
+    const allOffices = await Office.find({})
+    const offices = allOffices.filter(office => office.active !== false)
 
 
     // response
