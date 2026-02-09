@@ -605,11 +605,9 @@ const handler = async (req, res) => {
       }
 
       // Determinar el nuevo estado de activación según umbrales
-      // _activated: se activa con >= 60 puntos, una vez true permanece true
-      const new_activated = user._activated ? true : _points >= 60;
-      
-      // activated: se activa con >= 100 puntos, una vez true permanece true
+      // Solo activación full (>= 100 puntos), una vez true permanece true
       const newActivated = user.activated ? true : _points >= 100;
+      const new_activated = newActivated; // Sincronizar ambos campos
       
       const updateData = {
         name: _name,

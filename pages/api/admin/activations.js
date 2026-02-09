@@ -355,10 +355,9 @@ export default async (req, res) => {
       const points_total = user.points + activation.points;
       console.log({ points_total });
 
-      const _activated = user._activated ? true : points_total >= 60;
-      console.log({ _activated });
-
+      // Solo activación full (>=100 puntos)
       const activated = user.activated ? true : points_total >= 100;
+      const _activated = activated; // Sincronizar ambos campos
       console.log({ activated });
 
       await User.update(
@@ -487,8 +486,9 @@ export default async (req, res) => {
 
       await User.update({ id: user.id }, { points: user.points });
 
-      const _activated = user._activated ? true : user.points >= 60;
+      // Solo activación full (>=100 puntos)
       const activated = user.activated ? true : user.points >= 100;
+      const _activated = activated; // Sincronizar ambos campos
 
       await User.update(
         { id: user.id },

@@ -324,7 +324,8 @@ function pay_residual(id, n, user) {
   let _id = node.parent;
 
   if (node._activated || node.activated) {
-    let rr = node.activated ? 1 : 0.5;
+    // Solo activación full - todos reciben 100% de comisiones
+    const rr = 1;
 
     if (node.levels > n) {
       node.residual_bonus += r[node.rank][n] * user.points * rr;
