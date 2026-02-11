@@ -358,7 +358,8 @@ const handler = async (req, res) => {
         { id: user.id },
         {
           affiliated: true,
-          activated: true,
+          activated: true,  // Activación completa automática al afiliar
+          _activated: true, // Mantener sincronizado
           affiliation_date: new Date(),
           plan: affiliation.plan.id,
           n: affiliation.plan.n,

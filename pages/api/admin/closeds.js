@@ -215,7 +215,8 @@ function calc_range(arr, p) {
 }
 
 function rank(node) {
-  if (node._activated || node.activated)
+  // Solo usuarios con activación full (>=100 puntos) califican para rangos
+  if (node.activated)
     node.rank = calc_range(node.total, node.points);
   else node.rank = "none";
 
@@ -323,7 +324,8 @@ function pay_residual(id, n, user) {
   let node = tree.find((e) => e.id == id);
   let _id = node.parent;
 
-  if (node._activated || node.activated) {
+  // Solo usuarios con activación full (>=100 puntos) reciben comisiones
+  if (node.activated) {
     // Solo activación full - todos reciben 100% de comisiones
     const rr = 1;
 

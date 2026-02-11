@@ -45,7 +45,8 @@ export default async (req, res) => {
 
   _products.forEach(p => {
 
-    if(user._activated || user.activated) {
+    // Solo usuarios con activación full (>=100 puntos) obtienen descuentos
+    if(user.activated) {
 
       if(p.desc_price) {
         p.price = p.desc_price[i]
