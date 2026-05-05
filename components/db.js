@@ -647,6 +647,24 @@ class Closed {
     await db.collection('closeds').updateOne(query, { $set: values })
     return client.close()
   }
+  async findOptimized(query, projection = {}, limit = null) {
+    const client = new Client(URL)
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    let cursor = db.collection('closeds').find(query, { projection })
+    if (limit) cursor = cursor.limit(limit)
+    const closeds = await cursor.toArray()
+    client.close()
+    return closeds
+  }
+  async aggregate(pipeline) {
+    const client = new Client(URL)
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const results = await db.collection('closeds').aggregate(pipeline).toArray()
+    client.close()
+    return results
+  }
 }
 
 module.exports = new DB({
