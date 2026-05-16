@@ -9,40 +9,29 @@ class Lib {
   success(opts) { return { error: false, ...opts }}
 
   midd(req, res) {
-    const origin = req.headers.origin;
-    const requestHeaders = req.headers['access-control-request-headers'];
+    const Cors = require('cors');
     
-    // 1. Reflejar Origen (necesario para Credentials: true)
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
+    // Configuración robusta de CORS
+    const cors = Cors({
+      origin: true, // Refleja el origen de la petición automáticamente
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Cache-Control', 'Pragma', 'Expires'],
+      credentials: true,
+      maxAge: 86400
+    });
 
-    // 2. Métodos permitidos
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    
-    // 3. Headers permitidos (reflejar los solicitados + comunes)
-    if (requestHeaders) {
-      res.setHeader('Access-Control-Allow-Headers', requestHeaders);
-    } else {
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires, X-CBM-Middleware');
-    }
-
-    // 4. Otros headers de seguridad y sesión
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400');
-    res.setHeader('X-CBM-Middleware', 'active'); // Header de depuración
-
-    // 5. Manejar preflight (OPTIONS)
-    if (req.method === 'OPTIONS') {
-      res.statusCode = 204;
-      res.setHeader('Content-Length', '0');
-      res.end();
-      return true;
-    }
-
-    return false;
+    return new Promise((resolve, reject) => {
+      cors(req, res, (result) => {
+        if (result instanceof Error) {
+          return reject(result);
+        }
+        // Si es un OPTIONS, cors() ya llama a res.end()
+        if (req.method === 'OPTIONS') {
+          return resolve(true);
+        }
+        return resolve(false);
+      });
+    });
   }
 
   acum(a, query, field) {
