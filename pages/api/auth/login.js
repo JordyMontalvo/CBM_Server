@@ -37,6 +37,20 @@ const Login = async (req, res) => {
 }
 
 export default async (req, res) => {
-  if (await midd(req, res)) return;
-  return Login(req, res) 
+  try {
+    if (await midd(req, res)) return;
+    return await Login(req, res)
+  } catch (err) {
+    console.error('CRITICAL LOGIN ERROR:', err);
+    // Asegurar headers incluso en error
+    const origin = req.headers.origin;
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    
+    return res.status(500).json({ 
+      error: true, 
+      msg: 'Internal Server Error during login',
+      details: err.message 
+    });
+  }
 }

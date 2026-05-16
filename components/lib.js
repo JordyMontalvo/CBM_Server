@@ -10,26 +10,39 @@ class Lib {
 
   midd(req, res) {
     const origin = req.headers.origin;
+    const requestHeaders = req.headers['access-control-request-headers'];
     
-    // Si hay un origen, lo reflejamos para permitir CORS con credenciales
+    // 1. Reflejar Origen (necesario para Credentials: true)
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
     } else {
       res.setHeader('Access-Control-Allow-Origin', '*');
     }
 
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '86400');
-
-    // Manejar preflight requests
-    if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return true; // Indica que la petición terminó
+    // 2. Métodos permitidos
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    
+    // 3. Headers permitidos (reflejar los solicitados + comunes)
+    if (requestHeaders) {
+      res.setHeader('Access-Control-Allow-Headers', requestHeaders);
+    } else {
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires, X-CBM-Middleware');
     }
 
-    return false; // Indica que la petición debe continuar
+    // 4. Otros headers de seguridad y sesión
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    res.setHeader('X-CBM-Middleware', 'active'); // Header de depuración
+
+    // 5. Manejar preflight (OPTIONS)
+    if (req.method === 'OPTIONS') {
+      res.statusCode = 204;
+      res.setHeader('Content-Length', '0');
+      res.end();
+      return true;
+    }
+
+    return false;
   }
 
   acum(a, query, field) {
