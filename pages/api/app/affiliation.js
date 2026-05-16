@@ -82,6 +82,17 @@ function calculatePayments(user, tree) {
 }
 
 export default async (req, res) => {
+  // CORS MANUAL AGRESIVO
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   // Timeout de 20 segundos
   const timeout = setTimeout(() => {
     if (!res.headersSent) {
@@ -94,7 +105,6 @@ export default async (req, res) => {
   }, 20000);
 
   try {
-    if (await midd(req, res)) return;
 
     // valid session
     let { session } = req.query;

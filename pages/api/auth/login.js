@@ -37,8 +37,18 @@ const Login = async (req, res) => {
 }
 
 export default async (req, res) => {
+  // CORS MANUAL AGRESIVO (Punto de entrada)
+  const origin = req.headers.origin || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   try {
-    if (await midd(req, res)) return;
     return await Login(req, res)
   } catch (err) {
     console.error('CRITICAL LOGIN ERROR:', err);
