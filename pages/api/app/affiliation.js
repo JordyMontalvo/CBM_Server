@@ -94,7 +94,7 @@ export default async (req, res) => {
   }, 20000);
 
   try {
-    await midd(req, res);
+    if (await midd(req, res)) return;
 
     // valid session
     let { session } = req.query;

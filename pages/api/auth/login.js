@@ -37,6 +37,6 @@ const Login = async (req, res) => {
 }
 
 export default async (req, res) => {
-  await midd(req, res); 
+  if (await midd(req, res)) return;
   return Login(req, res) 
 }

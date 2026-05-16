@@ -9,23 +9,12 @@ class Lib {
   success(opts) { return { error: false, ...opts }}
 
   midd(req, res) {
-    // Configurar headers CORS manualmente
-    const allowedOrigins = [
-      'https://www.cbmundial.com',
-      'https://cbmundial.com',
-      'https://cbm-admin.vercel.app',
-      'https://cbm-oficina.vercel.app',
-      'http://localhost:8080',
-      'http://localhost:8081',
-      'http://localhost:3000'
-    ];
-
     const origin = req.headers.origin;
     
-    if (allowedOrigins.includes(origin)) {
+    // Si hay un origen, lo reflejamos para permitir CORS con credenciales
+    if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
-    } else if (!origin) {
-      // Permitir requests sin origin
+    } else {
       res.setHeader('Access-Control-Allow-Origin', '*');
     }
 
@@ -37,10 +26,10 @@ class Lib {
     // Manejar preflight requests
     if (req.method === 'OPTIONS') {
       res.status(200).end();
-      return Promise.resolve();
+      return true; // Indica que la petición terminó
     }
 
-    return Promise.resolve();
+    return false; // Indica que la petición debe continuar
   }
 
   acum(a, query, field) {

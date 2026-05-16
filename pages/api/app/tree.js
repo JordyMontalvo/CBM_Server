@@ -184,7 +184,7 @@ function find(id, n) {
 
 
 export default async (req, res) => {
-  await midd(req, res)
+  if (await midd(req, res)) return;
 
   let { session, id } = req.query
 
