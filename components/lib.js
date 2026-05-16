@@ -14,6 +14,7 @@ class Lib {
       'https://www.cbmundial.com',
       'https://cbmundial.com',
       'https://cbm-admin.vercel.app',
+      'https://cbm-oficina.vercel.app',
       'http://localhost:8080',
       'http://localhost:8081',
       'http://localhost:3000'
