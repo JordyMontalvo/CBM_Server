@@ -665,6 +665,14 @@ class Closed {
     client.close()
     return results
   }
+  async countDocuments(query) {
+    const client = new Client(URL)
+    const conn   = await client.connect()
+    const db     = conn.db(name)
+    const count = await db.collection('closeds').countDocuments(query)
+    client.close()
+    return count
+  }
 }
 
 module.exports = new DB({

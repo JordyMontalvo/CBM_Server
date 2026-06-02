@@ -372,16 +372,27 @@ export default async (req, res) => {
   // if(!user.verified) return res.json(error('unverified user'))
 
   if(req.method == 'GET') {
+    if (req.query.id) {
+      let closed = await Closed.findOne({ id: req.query.id });
+      if (!closed) closed = await Closed.findOne({ id: Number(req.query.id) });
+      return res.json(success({ closed }));
+    }
+
     // Parámetros de paginación
     const page = parseInt(req.query.page || '1', 10);
     const limit = parseInt(req.query.limit || '20', 10);
     const skip = (page - 1) * limit;
 
-    // Obtener cierres paginados y ordenados por fecha descendente
-    let closeds = await Closed.find({});
-    closeds = closeds.sort((a, b) => new Date(b.date) - new Date(a.date));
-    const total = closeds.length;
-    closeds = closeds.slice(skip, skip + limit);
+    // Obtener lista ligera de cierres
+    const pipeline = [
+      { $sort: { date: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      { $project: { id: 1, date: 1 } }
+    ];
+
+    const closeds = await Closed.aggregate(pipeline);
+    const total = await Closed.countDocuments({});
 
     // response
     return res.json(success({
