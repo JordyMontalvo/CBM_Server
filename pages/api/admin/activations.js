@@ -167,7 +167,7 @@ export default async (req, res) => {
           try {
         
         const { db, client } = await connectToDatabase();
-        const db = client.db(name);
+        
         
         // Crear índice compuesto para mejorar el rendimiento del ordenamiento
         try {

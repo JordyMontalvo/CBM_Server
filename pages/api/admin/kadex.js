@@ -32,7 +32,7 @@ export default async (req, res) => {
 
     
     const { db, client } = await connectToDatabase();
-    const database = client.db(name);
+    const database = db;
 
     // Traer todos los datos necesarios
     let products = await database.collection("products").find({}).toArray();

@@ -56,7 +56,7 @@ export default async (req, res) => {
     const { db, client } = await connectToDatabase();
     console.log('Conectado a MongoDB');
     
-    const db = client.db('cbm');
+    
     
     // Obtener todas las colecciones (excluyendo tablas de backup)
     const collections = await db.listCollections().toArray();

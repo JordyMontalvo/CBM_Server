@@ -105,7 +105,7 @@ const handler = async (req, res) => {
     try {
       
       const { db, client } = await connectToDatabase();
-      const db = client.db(name);
+      
 
       // Total de usuarios (solo count, sin cálculos pesados)
       const totalUsers = await db

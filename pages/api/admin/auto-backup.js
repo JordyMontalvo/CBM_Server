@@ -25,7 +25,7 @@ async function generateBackupSimplified() {
     const { db, client } = await connectToDatabase();
     console.log('[AUTO-BACKUP] Conectado a MongoDB');
     
-    const db = client.db('cbm');
+    
     
     // Generar nombre único para el backup
     const timestamp = new Date();
@@ -202,7 +202,7 @@ export default async (req, res) => {
     
     
     const { db, client } = await connectToDatabase();
-    const db = client.db('cbm');
+    
 
     if (action === 'list') {
       // Listar backups disponibles desde la base de datos

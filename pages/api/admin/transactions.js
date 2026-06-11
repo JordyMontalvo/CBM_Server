@@ -38,7 +38,7 @@ export default async (req, res) => {
       // Conectar a MongoDB
       
       const { db, client } = await connectToDatabase();
-      const database = client.db(name)
+      const database = db;
 
       // Construir query de búsqueda
       let query = {}
@@ -199,7 +199,7 @@ export default async (req, res) => {
         // Conectar a MongoDB
         
         const { db, client } = await connectToDatabase();
-        const database = client.db(name)
+        const database = db;
 
         // Buscar la transacción original
         const transaction = await database.collection('transactions').findOne({ id })
@@ -273,7 +273,7 @@ export default async (req, res) => {
         // Restaurar una transacción eliminada
         
         const { db, client } = await connectToDatabase();
-        const database = client.db(name)
+        const database = db;
 
         // Buscar la transacción original
         const transaction = await database.collection('transactions').findOne({ id })
