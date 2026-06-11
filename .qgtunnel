@@ -1,5 +1,5 @@
-[27017]
+[mongodb]
 accept = "127.0.0.1:27017"
 connect = "ec2-3-144-132-178.us-east-2.compute.amazonaws.com:27017"
-transparent = true
 encrypted = false
+transparent = true
