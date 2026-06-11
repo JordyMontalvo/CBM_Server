@@ -1,4 +1,4 @@
-import { MongoClient } from 'mongodb';
+import { connectToDatabase } from '../../../lib/mongodb';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
@@ -51,9 +51,9 @@ export default async (req, res) => {
 
     // Conectar a MongoDB
     const mongoUri = process.env.DB_URL;
-    const client = new MongoClient(mongoUri);
     
-    await client.connect();
+    
+    const { db, client } = await connectToDatabase();
     console.log('Conectado a MongoDB');
     
     const db = client.db('cbm');
@@ -160,7 +160,7 @@ export default async (req, res) => {
       console.log(`✅ Colección ${collectionName} exportada: ${documentCount} documentos (${fileStats.size} bytes)`);
     }
     
-    await client.close();
+    
     console.log('Conexión a MongoDB cerrada');
 
     // Crear archivo ZIP del backup

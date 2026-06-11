@@ -1,6 +1,6 @@
 import db from "../../../components/db";
 import lib from "../../../components/lib";
-import { MongoClient } from "mongodb";
+import { connectToDatabase } from '../../../lib/mongodb';
 import { updateTotalPointsCascade } from '../../../components/lib'
 
 const URL = process.env.DB_URL; // Asegúrate de que esta variable esté definida correctamente
@@ -165,8 +165,8 @@ export default async (req, res) => {
     );
 
           try {
-        const client = new MongoClient(URL);
-        await client.connect();
+        
+        const { db, client } = await connectToDatabase();
         const db = client.db(name);
         
         // Crear índice compuesto para mejorar el rendimiento del ordenamiento
@@ -257,7 +257,7 @@ export default async (req, res) => {
       console.log("Skip value:", skip);
       console.log("Total activations found:", totalActivations);
       console.log("Total pages calculated:", Math.ceil(totalActivations / limitNum));
-      client.close();
+      
 
       // Obtener usuarios relacionados con las activaciones
       console.log("Activations found:", activations.length);

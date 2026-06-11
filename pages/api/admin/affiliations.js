@@ -1,6 +1,6 @@
 import db from "../../../components/db";
 import lib from "../../../components/lib";
-import { MongoClient } from "mongodb";
+import { connectToDatabase } from '../../../lib/mongodb';
 import { updateTotalPointsCascade } from '../../../components/lib'
 
 const URL = process.env.DB_URL;
@@ -113,8 +113,8 @@ const handler = async (req, res) => {
     }
 
     try {
-      const client = new MongoClient(URL);
-      await client.connect();
+      
+      const { db, client } = await connectToDatabase();
       const dbClient = client.db(name);
 
       const pageNum = parseInt(page, 10);
@@ -124,7 +124,7 @@ const handler = async (req, res) => {
       // Límite de seguridad para skip
       const MAX_SKIP = 1000000;
       if (skip > MAX_SKIP) {
-        await client.close();
+        
         return res.json(error("Página demasiado alta. Use la búsqueda para encontrar resultados específicos."));
       }
 
@@ -274,7 +274,7 @@ const handler = async (req, res) => {
 
         const totalAffiliations = countResult[0]?.total || 0;
 
-        await client.close();
+        
 
         const result = affiliations.map((a) => model(a, A));
 
@@ -317,7 +317,7 @@ const handler = async (req, res) => {
           };
         });
 
-        await client.close();
+        
 
         return res.json(success({
           affiliations: result,

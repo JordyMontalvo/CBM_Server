@@ -1,4 +1,5 @@
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
+import { connectToDatabase } from '../../../lib/mongodb';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
@@ -19,9 +20,9 @@ function formatFileSize(bytes) {
 async function generateBackupSimplified() {
   try {
     const mongoUri = process.env.DB_URL;
-    const client = new MongoClient(mongoUri);
     
-    await client.connect();
+    
+    const { db, client } = await connectToDatabase();
     console.log('[AUTO-BACKUP] Conectado a MongoDB');
     
     const db = client.db('cbm');
@@ -155,7 +156,7 @@ async function generateBackupSimplified() {
       console.log(`[AUTO-BACKUP] Limpieza: ${deleteResult.deletedCount} backups antiguos eliminados`);
     }
     
-    await client.close();
+    
     console.log('[AUTO-BACKUP] Conexión a MongoDB cerrada');
     
     return {
@@ -198,9 +199,9 @@ export default async (req, res) => {
 
   try {
     const mongoUri = process.env.DB_URL;
-    const client = new MongoClient(mongoUri);
     
-    await client.connect();
+    
+    const { db, client } = await connectToDatabase();
     const db = client.db('cbm');
 
     if (action === 'list') {
@@ -222,7 +223,7 @@ export default async (req, res) => {
         originalSizeFormatted: formatFileSize(backup.originalSize)
       }));
 
-      await client.close();
+      
       return res.json({ 
         error: false, 
         backups: formattedBackups
@@ -233,7 +234,7 @@ export default async (req, res) => {
       console.log('[AUTO-BACKUP] Generando backup manual...');
       const result = await generateBackupSimplified();
       
-      await client.close();
+      
       
       if (result.success) {
         return res.json({ 
@@ -260,7 +261,7 @@ export default async (req, res) => {
         timestamp: { $lt: sevenDaysAgo }
       });
       
-      await client.close();
+      
       
       return res.json({ 
         error: false, 

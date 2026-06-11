@@ -1,6 +1,6 @@
 import db from "../../../components/db"
 import lib from "../../../components/lib"
-import { MongoClient } from "mongodb"
+import { connectToDatabase } from '../../../lib/mongodb';
 
 const URL = process.env.DB_URL
 const name = process.env.DB_NAME
@@ -36,8 +36,8 @@ export default async (req, res) => {
       const showDeleted = req.query.showDeleted || 'false' // 'false', 'true', 'only'
 
       // Conectar a MongoDB
-      const client = new MongoClient(URL)
-      await client.connect()
+      
+      const { db, client } = await connectToDatabase();
       const database = client.db(name)
 
       // Construir query de búsqueda
@@ -97,7 +97,7 @@ export default async (req, res) => {
           query.user_id = { $in: userIds }
         } else {
           // Si no se encontraron usuarios, devolver resultado vacío
-          await client.close()
+          
           return res.json(success({
             transactions: [],
             total: 0,
@@ -169,7 +169,7 @@ export default async (req, res) => {
       const totalIn = totals.find(t => t._id === 'in')?.total || 0
       const totalOut = totals.find(t => t._id === 'out')?.total || 0
 
-      await client.close()
+      
 
       return res.json(success({
         transactions,
@@ -197,15 +197,15 @@ export default async (req, res) => {
 
       if (action === 'delete') {
         // Conectar a MongoDB
-        const client = new MongoClient(URL)
-        await client.connect()
+        
+        const { db, client } = await connectToDatabase();
         const database = client.db(name)
 
         // Buscar la transacción original
         const transaction = await database.collection('transactions').findOne({ id })
 
         if (!transaction) {
-          await client.close()
+          
           return res.status(404).json({
             success: false,
             error: 'Transacción no encontrada'
@@ -214,7 +214,7 @@ export default async (req, res) => {
 
         // Verificar si ya está anulada
         if (transaction.deleted) {
-          await client.close()
+          
           return res.status(400).json({
             success: false,
             error: 'Esta transacción ya está anulada'
@@ -261,7 +261,7 @@ export default async (req, res) => {
 
         await database.collection('transactions').insertOne(compensatoryTransaction)
 
-        await client.close()
+        
 
         return res.json(success({
           message: 'Transacción anulada correctamente y balance ajustado',
@@ -271,15 +271,15 @@ export default async (req, res) => {
 
       if (action === 'restore') {
         // Restaurar una transacción eliminada
-        const client = new MongoClient(URL)
-        await client.connect()
+        
+        const { db, client } = await connectToDatabase();
         const database = client.db(name)
 
         // Buscar la transacción original
         const transaction = await database.collection('transactions').findOne({ id })
 
         if (!transaction) {
-          await client.close()
+          
           return res.status(404).json({
             success: false,
             error: 'Transacción no encontrada'
@@ -288,7 +288,7 @@ export default async (req, res) => {
 
         // Verificar si no está anulada
         if (!transaction.deleted) {
-          await client.close()
+          
           return res.status(400).json({
             success: false,
             error: 'Esta transacción no está anulada'
@@ -368,7 +368,7 @@ export default async (req, res) => {
             }
           )
 
-          await client.close()
+          
 
           return res.json(success({
             message: 'Transacción restaurada correctamente (sin reversión automática - transacción anulada antes del sistema)',
@@ -426,7 +426,7 @@ export default async (req, res) => {
         const verificacionOriginal = await database.collection('transactions').findOne({ id })
         console.log('✓ Verificación - Original ahora deleted:', verificacionOriginal.deleted)
 
-        await client.close()
+        
 
         return res.json(success({
           message: 'Transacción restaurada correctamente y balance restablecido',

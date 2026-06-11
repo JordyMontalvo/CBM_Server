@@ -1,7 +1,6 @@
 const URL  = process.env.DB_URL
 const name = process.env.DB_NAME
 
-const Client = require('mongodb').MongoClient
 
 class DB {
   constructor({ User, Session, Affiliation, Product, Activation, Banner, Promo, Prom, Plan, Token, Transaction, Tree, Collect, OfficeCollect, Office, Recharge, Closed }) {
@@ -27,650 +26,458 @@ class DB {
 
 class User {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const user   = await db.collection('users').findOne(query)
-    client.close()
     return user
   }
   async find(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const users  = await db.collection('users').find(query).toArray()
-    client.close()
     return users
   }
   async findOptimized(query, projection = {}, limit = null) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     let cursor = db.collection('users').find(query, { projection })
     if (limit) cursor = cursor.limit(limit)
     const users = await cursor.toArray()
-    client.close()
     return users
   }
   async insert(user) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('users').insertOne(user)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('users').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 
   async updateOne(q, vals) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('users').updateOne(q, { $set: vals })
-    return client.close()
+    return
   }
 
   async updateMany(q, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('users').updateMany(q, { $set: values })
-    return client.close()
+    return
   }
 
   async incMany(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('users').updateMany(query, { $inc: values })
-    return client.close()
+    return
   }
 }
 
 class Session {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const session = await db.collection('sessions').findOne(query)
-    client.close()
     return session
   }
   async insert(session) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('sessions').insertOne(session)
-    return client.close()
+    return
   }
   async delete(value) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('sessions').deleteOne({ value })
-    return client.close()
+    return
   }
 
   async deleteMany(q) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('sessions').deleteMany(q)
-    return client.close()
+    return
   }
 }
 
 class Affiliation {
   async findOne(query) {
-    const client      = new Client(URL)
-    const conn        = await client.connect()
-    const db          = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const affiliation = await db.collection('affiliations').findOne(query)
-    client.close()
     return affiliation
   }
   async findOneLast(query) {
-    const client      = new Client(URL)
-    const conn        = await client.connect()
-    const db          = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const affiliation = await db.collection('affiliations').find(query).toArray()
-    client.close()
     return (affiliation) ? affiliation[affiliation.length - 1] : null
   }
   async find(query) {
-    const client       = new Client(URL)
-    const conn         = await client.connect()
-    const db           = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const affiliations = await db.collection('affiliations').find(query).toArray()
-    client.close()
     return affiliations
   }
   async insert(affiliation) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('affiliations').insertOne(affiliation)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('affiliations').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 
   async updateMany(q, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('affiliations').updateMany(q, { $set: values })
-    return client.close()
+    return
   }
 
   async delete(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('affiliations').deleteOne(query)
-    return client.close()
+    return
   }
 }
 
 class Banner {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const banner  = await db.collection('banner').findOne(query)
-    client.close()
     return banner
   }
   async find(query) {
-    const client       = new Client(URL)
-    const conn         = await client.connect()
-    const db           = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const banners = await db.collection('banner').find(query).toArray()
-    client.close()
     return banners
   }
   async insert(banner) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('banner').insertOne(banner)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('banner').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Promo {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const promo  = await db.collection('promos').findOne(query)
-    client.close()
     return promo
   }
   async find(query) {
-    const client       = new Client(URL)
-    const conn         = await client.connect()
-    const db           = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const promos = await db.collection('promos').find(query).toArray()
-    client.close()
     return promos
   }
   async insert(promo) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('promos').insertOne(promo)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('promos').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Prom {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const promo  = await db.collection('promo').findOne(query)
-    client.close()
     return promo
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('promo').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Product {
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const products = await db.collection('products').find(query).toArray()
-    client.close()
     return products
   }
   async insert(user) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('products').insertOne(user)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('products').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
   async un_update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('products').updateOne(query, { $unset: values })
-    return client.close()
+    return
   }
   async delete(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('products').deleteOne(query)
-    return client.close()
+    return
   }
 }
 
 class Activation {
   async findOne(query) {
-    const client     = new Client(URL)
-    const conn       = await client.connect()
-    const db         = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const activation = await db.collection('activations').findOne(query)
-    client.close()
     return activation
   }
   async find(query) {
-    const client      = new Client(URL)
-    const conn        = await client.connect()
-    const db          = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const activations = await db.collection('activations').find(query).toArray()
-    client.close()
     return activations
   }
   async findLast1000() {
-    const client      = new Client(URL)
-    const conn        = await client.connect()
-    const db          = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const activations = await db.collection('activations')
       .find({}, { projection: { date: 1, price: 1, points: 1, user_id: 1, _id: 0 } })
       .sort({ date: -1 })
       .limit(1000)
       .toArray()
-    client.close()
     return activations
   }
   async insert(activation) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('activations').insertOne(activation)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('activations').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 
   async updateMany(q, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('activations').updateMany(q, { $set: values })
-    return client.close()
+    return
   }
 
   async delete(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('activations').deleteOne(query)
-    return client.close()
+    return
   }
 }
 
 class Plan {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const plan   = await db.collection('plans').findOne(query)
-    client.close()
     return plan
   }
   async find(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const plans  = await db.collection('plans').find(query).toArray()
-    client.close()
     return plans
   }
 }
 
 class Token {
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const token  = await db.collection('tokens').findOne(query)
-    client.close()
     return token
   }
   async insert(token) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('tokens').insertOne(token)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('tokens').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Transaction {
   async find(query) {
-    const client       = new Client(URL)
-    const conn         = await client.connect()
-    const db           = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const transactions = await db.collection('transactions').find(query).toArray()
-    client.close()
     return transactions
   }
   async aggregate(pipeline) {
-    const client       = new Client(URL)
-    const conn         = await client.connect()
-    const db           = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const transactions = await db.collection('transactions').aggregate(pipeline).toArray()
-    client.close()
     return transactions
   }
   async insert(transaction) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('transactions').insertOne(transaction)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('transactions').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
   async delete(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('transactions').deleteOne(query)
-    return client.close()
+    return
   }
 }
 
 class Tree {
   async find(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const tree   = await db.collection('tree').find(query).toArray()
-    client.close()
     return tree
   }
   async findOne(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const node   = await db.collection('tree').findOne(query)
-    client.close()
     return node
   }
   async insert(node) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('tree').insertOne(node)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('tree').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Collect {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const collect = await db.collection('collects').findOne(query)
-    client.close()
     return collect
   }
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const collects = await db.collection('collects').find(query).toArray()
-    client.close()
     return collects
   }
   async insert(collect) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('collects').insertOne(collect)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('collects').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class OfficeCollect {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const office_collect = await db.collection('office_collects').findOne(query)
-    client.close()
     return office_collect
   }
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const office_collects = await db.collection('office_collects').find(query).toArray()
-    client.close()
     return office_collects
   }
   async insert(collect) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('office_collects').insertOne(collect)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('office_collects').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Office {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const office = await db.collection('offices').findOne(query)
-    client.close()
     return office
   }
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const offices = await db.collection('offices').find(query).toArray()
-    client.close()
     return offices
   }
   async insert(office) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('offices').insertOne(office)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('offices').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 class Recharge {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const recharge = await db.collection('recharges').findOne(query)
-    client.close()
     return recharge
   }
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const recharges = await db.collection('recharges').find(query).toArray()
-    client.close()
     return recharges
   }
   async insert(recharge) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('recharges').insertOne(recharge)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('recharges').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
 }
 
 
 class Closed {
   async findOne(query) {
-    const client  = new Client(URL)
-    const conn    = await client.connect()
-    const db      = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const recharge = await db.collection('closeds').findOne(query)
-    client.close()
     return recharge
   }
   async find(query) {
-    const client   = new Client(URL)
-    const conn     = await client.connect()
-    const db       = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const closeds = await db.collection('closeds').find(query).toArray()
-    client.close()
     return closeds
   }
   async insert(recharge) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('closeds').insertOne(recharge)
-    return client.close()
+    return
   }
   async update(query, values) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     await db.collection('closeds').updateOne(query, { $set: values })
-    return client.close()
+    return
   }
   async findOptimized(query, projection = {}, limit = null) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     let cursor = db.collection('closeds').find(query, { projection })
     if (limit) cursor = cursor.limit(limit)
     const closeds = await cursor.toArray()
-    client.close()
     return closeds
   }
   async aggregate(pipeline) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const results = await db.collection('closeds').aggregate(pipeline).toArray()
-    client.close()
     return results
   }
   async countDocuments(query) {
-    const client = new Client(URL)
-    const conn   = await client.connect()
-    const db     = conn.db(name)
+    const { db } = await require('../lib/mongodb').connectToDatabase()
     const count = await db.collection('closeds').countDocuments(query)
-    client.close()
     return count
   }
 }

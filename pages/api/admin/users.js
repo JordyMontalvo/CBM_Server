@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import db from "../../../components/db";
 import lib from "../../../components/lib";
-import { MongoClient } from "mongodb";
+import { connectToDatabase } from '../../../lib/mongodb';
 import { updateTotalPointsCascade } from '../../../components/lib'
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -103,8 +103,8 @@ const handler = async (req, res) => {
     }
 
     try {
-      const client = new MongoClient(URL);
-      await client.connect();
+      
+      const { db, client } = await connectToDatabase();
       const db = client.db(name);
 
       // Total de usuarios (solo count, sin cálculos pesados)
@@ -228,7 +228,7 @@ const handler = async (req, res) => {
 
       // Calcular totales de los usuarios paginados
 
-      await client.close();
+      
 
       // response con información de paginación
       return res.json(

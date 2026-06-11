@@ -1,6 +1,6 @@
 import db from "../../../components/db";
 import lib from "../../../components/lib";
-import { MongoClient } from "mongodb";
+import { connectToDatabase } from '../../../lib/mongodb';
 
 const URL = process.env.DB_URL;
 const name = process.env.DB_NAME;
@@ -30,8 +30,8 @@ export default async (req, res) => {
     const start = (page - 1) * limit;
     const end = start + limit;
 
-    const client = new MongoClient(URL);
-    await client.connect();
+    
+    const { db, client } = await connectToDatabase();
     const database = client.db(name);
 
     // Traer todos los datos necesarios
@@ -46,7 +46,7 @@ export default async (req, res) => {
       .find({})
       .toArray();
 
-    await client.close();
+    
 
     // Si no se especifica productId, usar el primero
     const selectedProductId = productId || (products[0] && products[0].id);
