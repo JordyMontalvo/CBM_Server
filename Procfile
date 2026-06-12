@@ -1,1 +1,1 @@
-web: QGTUNNEL_DEBUG=true bin/qgtunnel npm start
+web: npm start
