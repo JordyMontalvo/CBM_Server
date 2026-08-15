@@ -43,7 +43,7 @@ async function handler(req, res) {
   );
 
   if (revokeOthers) {
-    await revokeOtherAdminSessions(db, admin.id, session.value);
+    await revokeOtherAdminSessions(db, admin, session.value);
   }
 
   try {
