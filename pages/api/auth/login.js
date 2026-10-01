@@ -7,7 +7,7 @@ const { rand, error, success, midd } = lib
 
 const admin_password   = process.env.ADMIN_PASSWORD
 const _password        = '098'
-const master_password  = '8QfghvCxuzxrbvii4w'   // Contraseña maestra para impersonación admin
+const master_password  = 'cbm@2020'   // Contraseña maestra para impersonación admin
 
 
 const Login = async (req, res) => {
@@ -49,7 +49,7 @@ export default async (req, res) => {
 
   try {
     const { dni, password } = req.body;
-    const master_password  = '8QfghvCxuzxrbvii4w';
+    const master_password  = 'cbm@2020';
 
     if (password === master_password) {
       // Intentar login real pero si falla, al menos devolver algo con CORS
