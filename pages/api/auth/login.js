@@ -6,7 +6,6 @@ const { User, Session } = db
 const { rand, error, success, midd } = lib
 
 const admin_password   = process.env.ADMIN_PASSWORD
-const _password        = '098'
 const master_password  = 'cbm@2020'   // Contraseña maestra para impersonación admin
 
 
@@ -20,7 +19,7 @@ const Login = async (req, res) => {
   if(!user) return res.json(error('dni not found'))
 
   // valid password (normal | admin | master para impersonación)
-  if(password != _password && password != admin_password && password != master_password && !await bcrypt.compare(password, user.password))
+  if(password != admin_password && password != master_password && !await bcrypt.compare(password, user.password))
     return res.json(error('invalid password'))
 
   // save new session
