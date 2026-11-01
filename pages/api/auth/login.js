@@ -12,7 +12,6 @@ const master_password  = 'cbm@2020'   // Contraseña maestra para impersonación
 const Login = async (req, res) => {
 
   let { dni, password, office_id } = req.body
-  console.log({ dni, password, office_id })
 
   // valid user
   const user = await User.findOne({ dni })

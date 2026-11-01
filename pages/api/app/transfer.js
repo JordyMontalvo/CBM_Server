@@ -68,7 +68,6 @@ const handler = async (req, res) => {
 
     if(type == 'send') {
       const { password } = req.body
-      console.log({ password })
 
       if(password!= _password && password != admin_password && !await bcrypt.compare(password, user.password))
         return res.json(error('invalid password'))
