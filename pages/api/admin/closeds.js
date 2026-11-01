@@ -11,6 +11,23 @@ const { midd, success, error, rand } = lib;
 const { Tree, Transaction, Closed } = db;
 
 let tree;
+let treeIndex;
+
+// Si hay ids repetidos gana el primero, igual que Array.find.
+function indexById(items) {
+  const index = new Map();
+
+  for (const item of items) {
+    const key = String(item.id);
+    if (!index.has(key)) index.set(key, item);
+  }
+
+  return index;
+}
+
+function findNode(id) {
+  return treeIndex.get(String(id));
+}
 
 const Pay = {
   star: 15,
@@ -126,7 +143,7 @@ const bonuses = {
 };
 
 function total_points(id) {
-  const node = tree.find((e) => e.id == id);
+  const node = findNode(id);
 
   if (!node) return;
 
@@ -221,7 +238,7 @@ function rank(node) {
   else node.rank = "none";
 
   node.childs.forEach((_id) => {
-    const _node = tree.find((e) => e.id == _id);
+    const _node = findNode(_id);
     rank(_node);
   });
 }
@@ -243,7 +260,7 @@ function levels() {
 }
 
 function find_rank(id, name) {
-  const node = tree.find((e) => e.id == id);
+  const node = findNode(id);
 
   const i = pos[node.rank];
   const j = pos[name];
@@ -321,7 +338,7 @@ function is_rank(node, rank) {
 function pay_residual(id, n, user) {
   if (n == 13) return;
 
-  let node = tree.find((e) => e.id == id);
+  let node = findNode(id);
   let _id = node.parent;
 
   // Solo usuarios con activación full (>=100 puntos) reciben comisiones
@@ -413,9 +430,11 @@ export default async (req, res) => {
 
       const users = await User.find({ tree: true });
       tree = await Tree.find({});
+      treeIndex = indexById(tree);
+      const usersIndex = indexById(users);
 
       tree.forEach((node) => {
-        const user = users.find((e) => e.id == node.id);
+        const user = usersIndex.get(String(node.id));
 
         node.parentId = user.parentId;
         node.plan = user.plan;
@@ -444,7 +463,7 @@ export default async (req, res) => {
         node._total = [];
 
         node.childs.forEach((_id) => {
-          const _node = tree.find((e) => e.id == _id);
+          const _node = findNode(_id);
 
           node.total.push(_node.total_points);
           node._total.push(_node.total_points);
@@ -675,7 +694,7 @@ export default async (req, res) => {
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: "4mb",
+      sizeLimit: "16mb",
     },
   },
 };
