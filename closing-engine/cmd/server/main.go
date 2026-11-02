@@ -3,6 +3,7 @@
 // Variables de entorno (las mismas que lib/mongodb.js):
 //
 //	PORT                   puerto (por defecto 8080)
+//	LISTEN_ADDR            dirección de escucha (por defecto ":PORT"; en Heroku 127.0.0.1:8081)
 //	DB_URL                 cadena de conexión a Mongo
 //	DB_NAME                base de datos
 //	CLOSING_ENGINE_SECRET  secreto compartido con Next (cabecera X-Closing-Engine-Secret)
@@ -28,6 +29,10 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+	addr := os.Getenv("LISTEN_ADDR")
+	if addr == "" {
+		addr = ":" + port
 	}
 	url := os.Getenv("DB_URL")
 	if url == "" {
@@ -64,13 +69,13 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:              ":" + port,
+		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
-		log.Printf("closing engine escuchando en :%s", port)
+		log.Printf("closing engine escuchando en %s", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %v", err)
 		}

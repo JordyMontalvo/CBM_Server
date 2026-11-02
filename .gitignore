@@ -31,3 +31,6 @@ yarn-error.log*
 .env.production.local
 
 .vercel
+
+# motor de cierre compilado en heroku-postbuild
+/bin/closing-engine
