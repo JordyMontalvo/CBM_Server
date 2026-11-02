@@ -414,7 +414,9 @@ func capSum(arr []tp, first, rest, m float64) float64 {
 		if c == 0 {
 			f = first
 		}
-		limit := f * m
+		// float64() explícito: impide que el compilador fusione f*m con la suma
+		// siguiente en una FMA (arm64), que redondea distinto que V8.
+		limit := float64(f * m)
 		b := t.num()
 		if b > limit {
 			a += limit
@@ -547,7 +549,10 @@ func (r *Run) payResidual(id any, n int, user *node) error {
 				if n < len(rates) {
 					rate = rates[n]
 				}
-				amount := rate * user.points * rr
+				// float64() explícito: sin él, en arm64 el compilador fusiona el
+				// producto con `nd.residual += amount` (FMA) y el último dígito
+				// difiere del JS.
+				amount := float64(rate * user.points * rr)
 
 				nd.residual += amount
 

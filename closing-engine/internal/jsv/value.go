@@ -257,7 +257,7 @@ func ToString(v any) string {
 var decimalLiteral = regexp.MustCompile(`^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$`)
 
 func isJSWhitespace(r rune) bool {
-	if r == '﻿' {
+	if r == '\uFEFF' {
 		return true
 	}
 	if r == '\u0085' {
