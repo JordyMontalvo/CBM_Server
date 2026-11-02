@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "heroku-postbuild": "npm run build && bash scripts/build-closing-engine.sh",
     "start": "next start -p $PORT"
   },
   "dependencies": {

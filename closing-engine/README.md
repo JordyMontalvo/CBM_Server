@@ -50,9 +50,26 @@ Las capturas tienen datos personales: están en `.gitignore`.
 | Variable | Dónde | Uso |
 |---|---|---|
 | `PORT` | Go | Puerto (por defecto 8080) |
+| `LISTEN_ADDR` | Go | Dirección de escucha (por defecto `:PORT`) |
 | `DB_URL`, `DB_NAME` | Go | Las mismas que usa `lib/mongodb.js` |
 | `CLOSING_ENGINE_SECRET` | Go y Next | Secreto compartido (cabecera `X-Closing-Engine-Secret`) |
 | `CLOSING_ENGINE_URL` | Next | URL del servicio Go. Sin ella, Next usa el motor JS |
+
+## Despliegue en Heroku (mismo dyno que Next)
+
+El motor corre dentro del dyno `web` de `cbm-server-1`, junto a Next, escuchando
+solo en `127.0.0.1:8081`. No hace falta otra app ni otro buildpack.
+
+- **Build:** `heroku-postbuild` ejecuta `npm run build` y luego
+  `scripts/build-closing-engine.sh`, que descarga Go (versión y sha256 fijados)
+  a `/tmp` y compila `bin/closing-engine`. El toolchain no entra en el slug.
+- **Arranque:** el `Procfile` ejecuta `scripts/start.sh`, que lanza Go (con
+  reinicio automático si se cae) y después `npm start`.
+- **Activar:** definir en Heroku `CLOSING_ENGINE_SECRET` (cualquier valor
+  aleatorio largo) y `CLOSING_ENGINE_URL=http://127.0.0.1:8081`.
+- **Desactivar / rollback:** borrar `CLOSING_ENGINE_URL` (Next vuelve al motor JS).
+  Sin `CLOSING_ENGINE_SECRET` Go ni siquiera arranca.
+- `CLOSING_ENGINE_PORT` cambia el puerto interno (por defecto 8081).
 
 ## Diferencias conocidas con el JS
 
