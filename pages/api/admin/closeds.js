@@ -10,6 +10,34 @@ const { midd, success, error, rand } = lib;
 
 const { Tree, Transaction, Closed } = db;
 
+// Motor de cierre en Go (closing-engine/). Si CLOSING_ENGINE_URL está
+// definida, el POST se reenvía al servicio Go; si no, se usa el motor JS de
+// abajo como respaldo.
+const CLOSING_ENGINE_URL = process.env.CLOSING_ENGINE_URL;
+const CLOSING_ENGINE_SECRET = process.env.CLOSING_ENGINE_SECRET;
+
+async function forwardToClosingEngine(req, res) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (CLOSING_ENGINE_SECRET) headers['X-Closing-Engine-Secret'] = CLOSING_ENGINE_SECRET;
+
+  let response;
+  try {
+    response = await fetch(`${CLOSING_ENGINE_URL.replace(/\/+$/, '')}/closeds`, {
+      method: 'POST',
+      headers,
+      body: req.body === undefined ? 'null' : JSON.stringify(req.body),
+    });
+  } catch (err) {
+    console.error('closing engine unavailable:', err);
+    return res.status(502).json(error('closing engine unavailable'));
+  }
+
+  const text = await response.text();
+  res.status(response.status);
+  res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json; charset=utf-8');
+  return res.send(text);
+}
+
 let tree;
 let treeIndex;
 
@@ -422,6 +450,8 @@ export default async (req, res) => {
 
   if (req.method == "POST") {
     console.log("POST ...");
+
+    if (CLOSING_ENGINE_URL) return forwardToClosingEngine(req, res);
 
     const { action } = req.body;
 

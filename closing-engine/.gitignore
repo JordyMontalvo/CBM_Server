@@ -1,0 +1,6 @@
+# Capturas para la prueba golden: contienen datos reales (dni, nombres).
+internal/engine/testdata/*.json
+
+# Binarios
+/bin/
+/cmd/server/server
