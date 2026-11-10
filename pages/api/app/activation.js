@@ -100,7 +100,7 @@ export default async (req, res) => {
 
   if(req.method == 'POST') {
 
-    let { products, office, check, voucher, pay_method, bank, date, voucher_number } = req.body
+    let { products, office, check, voucher, pay_method, bank, date, voucher_number, voucher2, voucher_number2 } = req.body
     // let { products, voucher, office } = req.body
 
     // console.log({ products })
@@ -189,6 +189,9 @@ export default async (req, res) => {
       bank,
       voucher_date: date,
       voucher_number,
+      // segundo voucher (opcional)
+      voucher2: voucher2 || null,
+      voucher_number2: voucher2 ? (voucher_number2 || null) : null,
     })
 
     // response

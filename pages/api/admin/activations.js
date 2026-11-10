@@ -41,6 +41,8 @@ const A = [
   "bank",
   "voucher_date",
   "voucher_number",
+  "voucher2",
+  "voucher_number2",
 ];
 const U = ["name", "lastName", "dni", "phone"];
 
@@ -242,7 +244,9 @@ export default async (req, res) => {
             pay_method: 1,
             bank: 1,
             voucher_date: 1,
-            voucher_number: 1
+            voucher_number: 1,
+            voucher2: 1,
+            voucher_number2: 1
           }
         })
         .sort({ date: -1 })
