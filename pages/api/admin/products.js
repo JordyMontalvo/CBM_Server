@@ -3,7 +3,17 @@ import lib from "../../../components/lib"
 import cache from "../../../components/cache"
 
 const { Product } = db
-const { midd, success, rand } = lib
+const { midd, success, error, rand } = lib
+
+// Imagen del producto: URL http(s) (subida a Bunny o enlace pegado).
+// undefined = no tocar; '' = quitar; otro valor inválido = error.
+function parseImg(value) {
+  if (value === undefined || value === null) return { skip: true }
+  const img = String(value).trim()
+  if (img === '') return { remove: true }
+  if (!/^https?:\/\/\S+$/i.test(img) || img.length > 1000) return { invalid: true }
+  return { img }
+}
 
 
 export default async (req, res) => {
@@ -40,6 +50,11 @@ export default async (req, res) => {
 
       const { id } = req.body
       const { _name, _type, _price, aff_price_check, desc_price_check, val_check, val_desc_check } = req.body.data
+
+      const image = parseImg(req.body.data._img)
+      if (image.invalid) return res.json(error('El enlace de la imagen no es válido'))
+      if (image.img)    await Product.update({ id }, { img: image.img })
+      if (image.remove) await Product.un_update({ id }, { img: '' })
 
       await Product.update({ id }, {
         name: _name,
@@ -107,6 +122,10 @@ export default async (req, res) => {
 
       const { name, type, price, aff_price_check, aff_price } = req.body.data
 
+      const image = parseImg(req.body.data.img)
+      if (image.invalid) return res.json(error('El enlace de la imagen no es válido'))
+      const img = image.img ? { img: image.img } : {}
+
       if(aff_price_check) {
         await Product.insert({
           id: rand(),
@@ -114,13 +133,15 @@ export default async (req, res) => {
           type: type,
           price,
           aff_price,
+          ...img,
         })
       } else {
         await Product.insert({
           id: rand(),
           name: name,
           type: type,
-          price
+          price,
+          ...img,
         })
       }
       
